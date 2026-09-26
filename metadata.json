@@ -1,0 +1,6 @@
+{
+  "name": "Student Details Collection Portal",
+  "description": "A simple, clean, and secure Google Forms-style student details collection portal with email OTP verification and academic details registration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
