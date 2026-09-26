@@ -1,4 +1,4 @@
-import { DEPARTMENTS, verifyFacultyCredentials, createFacultyToken } from '../../server/faculty';
+import { DEPARTMENTS, verifyFacultyCredentials, createFacultyToken } from '../../server/faculty.js';
 
 export default function handler(req: any, res: any) {
   if (req.method !== 'POST') {

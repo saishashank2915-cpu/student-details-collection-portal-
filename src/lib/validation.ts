@@ -1,4 +1,4 @@
-import { StudentFormData } from '../types/student';
+import type { StudentFormData } from '../types/student.js';
 
 export interface ValidationErrors {
   fullName?: string;

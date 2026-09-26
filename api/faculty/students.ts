@@ -1,5 +1,5 @@
-import { db } from '../../server/db';
-import { DEPARTMENTS, getDepartmentAliases, verifyFacultyToken } from '../../server/faculty';
+import { db } from '../../server/db.js';
+import { DEPARTMENTS, getDepartmentAliases, verifyFacultyToken } from '../../server/faculty.js';
 
 function extractSession(req: any): { dept: string } | null {
   const authHeader = req.headers.authorization;

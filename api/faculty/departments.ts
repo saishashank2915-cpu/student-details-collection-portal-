@@ -1,4 +1,4 @@
-import { DEPARTMENTS } from '../../server/faculty';
+import { DEPARTMENTS } from '../../server/faculty.js';
 
 export default function handler(_req: any, res: any) {
   const depts = Object.values(DEPARTMENTS).map((d) => ({

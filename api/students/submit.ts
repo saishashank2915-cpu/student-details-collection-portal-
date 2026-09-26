@@ -1,12 +1,12 @@
-import { db } from '../../server/db';
-import { validateVerificationToken, consumeVerificationToken } from '../../server/otp';
+import { db } from '../../server/db.js';
+import { validateVerificationToken, consumeVerificationToken } from '../../server/otp.js';
 import {
   validateEmail,
   validateMobileNumber,
   validateRollNumber,
   calculateBtechPercentageFromCgpa,
   calculatePercentageFromCgpa
-} from '../../src/lib/validation';
+} from '../../src/lib/validation.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {

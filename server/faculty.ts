@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
-import { db, StudentDbRow } from './db';
+import { db, type StudentDbRow } from './db.js';
 
 const FACULTY_SECRET = process.env.FACULTY_JWT_SECRET || 'avn_faculty_dept_secret_key_2026';
 const GLOBAL_FACULTY_PASS = process.env.FACULTY_PASSWORD || 'faculty@avn2026';

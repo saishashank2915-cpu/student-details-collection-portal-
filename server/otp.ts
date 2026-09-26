@@ -1,6 +1,6 @@
 import { randomInt, randomBytes, createHash } from 'crypto';
-import { db } from './db';
-import { sendOtpEmail } from './resend';
+import { db } from './db.js';
+import { sendOtpEmail } from './resend.js';
 
 // Secret salt for OTP hashing (prevents rainbow table attacks)
 const OTP_SALT = process.env.OTP_SECRET_SALT || 'portal_student_otp_salt_v1_secure';

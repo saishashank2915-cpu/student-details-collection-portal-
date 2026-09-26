@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { requestEmailOtp } from '../../server/otp';
+import { requestEmailOtp } from '../../server/otp.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {

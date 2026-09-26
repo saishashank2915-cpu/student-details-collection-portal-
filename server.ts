@@ -2,16 +2,16 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { db, isPostgresConfigured } from './server/db';
-import { requestEmailOtp, verifyEmailOtp, validateVerificationToken, consumeVerificationToken } from './server/otp';
-import { isResendConfigured } from './server/resend';
+import { db, isPostgresConfigured } from './server/db.js';
+import { requestEmailOtp, verifyEmailOtp, validateVerificationToken, consumeVerificationToken } from './server/otp.js';
+import { isResendConfigured } from './server/resend.js';
 import {
   calculatePercentageFromCgpa,
   verifyCgpaPercentageMatch,
   validateEmail,
   validateMobileNumber,
   validateRollNumber
-} from './src/lib/validation';
+} from './src/lib/validation.js';
 import {
   DEPARTMENTS,
   getDepartmentAliases,
@@ -19,7 +19,7 @@ import {
   createFacultyToken,
   verifyFacultyToken,
   generateStudentsExcelBuffer
-} from './server/faculty';
+} from './server/faculty.js';
 
 dotenv.config();
 
@@ -54,7 +54,6 @@ app.post('/api/otp/send', async (req: Request, res: Response) => {
       success: result.success,
       message: result.message,
       cooldownSeconds: result.cooldownSeconds,
-      devNotice: result.devNotice,
     });
   } catch (error: any) {
     console.error('Error in /api/otp/send:', error);
