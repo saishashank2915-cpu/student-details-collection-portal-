@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db, isPostgresConfigured } from './server/db.js';
 import { requestEmailOtp, verifyEmailOtp, validateVerificationToken, consumeVerificationToken } from './server/otp.js';
-import { isResendConfigured } from './server/resend.js';
+import { isSupabaseAuthConfigured } from './server/supabase-auth.js';
 import {
   calculatePercentageFromCgpa,
   verifyCgpaPercentageMatch,
@@ -36,7 +36,7 @@ app.get('/api/status', (_req: Request, res: Response) => {
   res.json({
     databaseConfigured: isPostgresConfigured(),
     databaseType: isPostgresConfigured() ? 'Supabase PostgreSQL' : 'Memory Database (Fallback)',
-    resendConfigured: isResendConfigured(),
+    supabaseAuthConfigured: isSupabaseAuthConfigured(),
   });
 });
 

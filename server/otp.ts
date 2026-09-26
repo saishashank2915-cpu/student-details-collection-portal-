@@ -1,28 +1,11 @@
-import { randomInt, randomBytes, createHash } from 'crypto';
-import { db } from './db.js';
-import { sendOtpEmail } from './resend.js';
+import { randomBytes, createHash } from 'crypto';
+import { db, isPostgresConfigured } from './db.js';
+import { authRequest } from './supabase-auth.js';
 
-// Secret salt for OTP hashing (prevents rainbow table attacks)
-const OTP_SALT = process.env.OTP_SECRET_SALT || 'portal_student_otp_salt_v1_secure';
-
-const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
-const RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
-const MAX_VERIFY_ATTEMPTS = 5;
-const TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes to submit form after email verification
-
-/**
- * Hash OTP using SHA-256 with salt
- */
-export function hashOtp(otp: string): string {
-  return createHash('sha256').update(`${otp}:${OTP_SALT}`).digest('hex');
-}
-
-/**
- * Generate 6-digit cryptographically secure OTP
- */
-export function generateOtp(): string {
-  return randomInt(100000, 1000000).toString();
-}
+const TOKEN_EXPIRY_MS = 15 * 60 * 1000;
+const normalizeEmail = (value: unknown): string => typeof value === 'string' ? value.trim().toLowerCase() : '';
+const validEmail = (value: string): boolean => value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const tokenHash = (value: string): string => createHash('sha256').update(value).digest('hex');
 
 export interface RequestOtpResult {
   success: boolean;
@@ -32,58 +15,11 @@ export interface RequestOtpResult {
 }
 
 export async function requestEmailOtp(rawEmail: string): Promise<RequestOtpResult> {
-  const email = rawEmail.trim().toLowerCase();
-
-  // Validate format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    return {
-      success: false,
-      message: 'Please enter a valid email address.',
-      statusCode: 400,
-    };
-  }
-
-  // 1. Check cooldown (60 seconds)
-  const lastSent = await db.getLastOtpSentTime(email);
-  if (lastSent) {
-    const elapsed = Date.now() - lastSent.getTime();
-    if (elapsed < RESEND_COOLDOWN_MS) {
-      const remainingSeconds = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
-      return {
-        success: false,
-        message: `Please wait ${remainingSeconds} seconds before requesting a new OTP.`,
-        cooldownSeconds: remainingSeconds,
-        statusCode: 429,
-      };
-    }
-  }
-
-  // 2. Generate secure 6-digit OTP and hash it
-  const otp = generateOtp();
-  const hashed = hashOtp(otp);
-  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
-
-  // 3. Save OTP hash to database (invalidating previous unverified OTPs)
-  await db.saveOtp(email, hashed, expiresAt);
-
-  // 4. Send email via Resend
-  const emailResult = await sendOtpEmail(email, otp);
-
-  if (!emailResult.success) {
-    return {
-      success: false,
-      message: emailResult.error || 'Failed to send OTP email. Please try again.',
-      statusCode: 500,
-    };
-  }
-
-  return {
-    success: true,
-    message: 'OTP sent to your email.',
-    cooldownSeconds: 60,
-    statusCode: 200,
-  };
+  const email = normalizeEmail(rawEmail);
+  if (!validEmail(email)) return { success: false, message: 'Please enter a valid email address.', statusCode: 400 };
+  const result = await authRequest('otp', { email, create_user: true });
+  if (!result.ok) return { success: false, message: result.message, statusCode: result.status, cooldownSeconds: result.cooldownSeconds };
+  return { success: true, message: 'OTP requested. Check your inbox and spam folder.', cooldownSeconds: 60, statusCode: 200 };
 }
 
 export interface VerifyOtpResult {
@@ -95,95 +31,40 @@ export interface VerifyOtpResult {
 }
 
 export async function verifyEmailOtp(rawEmail: string, rawOtp: string): Promise<VerifyOtpResult> {
-  const email = rawEmail.trim().toLowerCase();
-  const otp = (rawOtp || '').trim();
-
-  if (!email) {
-    return {
-      success: false,
-      message: 'Email address is required.',
-      statusCode: 400,
-    };
+  const email = normalizeEmail(rawEmail);
+  const otp = typeof rawOtp === 'string' ? rawOtp.trim() : '';
+  if (!validEmail(email) || !/^\d{6}$/.test(otp)) {
+    return { success: false, message: 'Enter a valid email address and the 6-digit code.', statusCode: 400 };
   }
-
-  if (!otp || otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-    return {
-      success: false,
-      message: 'Please enter a valid 6-digit OTP.',
-      statusCode: 400,
-    };
+  if ((process.env.VERCEL || process.env.NODE_ENV === 'production') && !isPostgresConfigured()) {
+    return { success: false, message: 'The portal database is not configured. Set DATABASE_URL before verifying.', statusCode: 503 };
   }
-
-  // 1. Fetch latest active unverified OTP for email
-  const record = await db.getLatestActiveOtp(email);
-  if (!record) {
-    return {
-      success: false,
-      message: 'No active OTP request found. Please click Send OTP.',
-      statusCode: 400,
-    };
+  const result = await authRequest('verify', { email, token: otp, type: 'email' });
+  if (!result.ok) return { success: false, message: result.message, statusCode: result.status };
+  const user = result.data?.user;
+  if (!result.data?.access_token || !user?.id || !user?.email_confirmed_at || normalizeEmail(user.email) !== email) {
+    return { success: false, message: 'Supabase did not confirm this email address. Request a new OTP.', statusCode: 400 };
   }
-
-  // 2. Check expiration
-  const now = new Date();
-  if (record.expiresAt < now) {
-    return {
-      success: false,
-      message: 'This OTP has expired. Please request a new one.',
-      statusCode: 400,
-    };
-  }
-
-  // 3. Check attempt count
-  if (record.attemptCount >= MAX_VERIFY_ATTEMPTS) {
-    return {
-      success: false,
-      message: 'Maximum verification attempts exceeded. Please request a new OTP.',
-      statusCode: 429,
-    };
-  }
-
-  // Increment attempt count
-  const newAttemptCount = record.attemptCount + 1;
-  await db.updateOtpAttempts(record.id, newAttemptCount);
-
-  // 4. Verify hash
-  const inputHash = hashOtp(otp);
-  if (inputHash !== record.otpHash) {
-    const remaining = MAX_VERIFY_ATTEMPTS - newAttemptCount;
-    return {
-      success: false,
-      message: remaining > 0
-        ? `Incorrect OTP. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
-        : 'Incorrect OTP. Maximum attempts exceeded. Please request a new OTP.',
-      remainingAttempts: remaining,
-      statusCode: 400,
-    };
-  }
-
-  // 5. Success: generate cryptographic verification token
+  // Do not expose Supabase access/refresh tokens. Issue a scoped form-submission token.
   const token = randomBytes(32).toString('hex');
-  const tokenExpiresAt = new Date(Date.now() + TOKEN_EXPIRY_MS);
-
-  await db.markOtpVerified(record.id, token, tokenExpiresAt);
-
-  return {
-    success: true,
-    message: 'Email verified successfully.',
-    verificationToken: token,
-    statusCode: 200,
-  };
+  const expires = new Date(Date.now() + TOKEN_EXPIRY_MS);
+  try {
+    const record = await db.saveOtp(email, tokenHash(randomBytes(32).toString('hex')), new Date());
+    await db.markOtpVerified(record.id, tokenHash(token), expires);
+  } catch {
+    return { success: false, message: 'Email was confirmed, but the portal could not save verification. Check the database connection, then request a new OTP.', statusCode: 503 };
+  }
+  return { success: true, message: 'Email verified successfully.', verificationToken: token, statusCode: 200 };
 }
 
 export async function validateVerificationToken(email: string, token: string): Promise<boolean> {
-  if (!email || !token) return false;
-  const record = await db.findValidVerificationToken(email, token);
-  return Boolean(record);
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) return false;
+  const record = await db.findValidVerificationToken(normalizeEmail(email), tokenHash(token));
+  return Boolean(record?.verifiedAt);
 }
 
 export async function consumeVerificationToken(email: string, token: string): Promise<void> {
-  const record = await db.findValidVerificationToken(email, token);
-  if (record) {
-    await db.consumeVerificationToken(record.id);
-  }
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) return;
+  const record = await db.findValidVerificationToken(normalizeEmail(email), tokenHash(token));
+  if (record) await db.consumeVerificationToken(record.id);
 }

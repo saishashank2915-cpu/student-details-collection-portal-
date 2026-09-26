@@ -237,6 +237,7 @@ class MemoryDatabase {
 // PostgreSQL Implementation
 class PostgresDatabase {
   private pool: pg.Pool;
+  ready: Promise<void> = Promise.resolve();
 
   constructor(connectionString: string) {
     this.pool = new Pool({
@@ -288,6 +289,7 @@ class PostgresDatabase {
         );
 
         -- Add columns to existing table if already created earlier
+        ALTER TABLE students ADD COLUMN IF NOT EXISTS year_of_study VARCHAR(30);
         ALTER TABLE students ALTER COLUMN year_of_study DROP NOT NULL;
         ALTER TABLE students ADD COLUMN IF NOT EXISTS intermediate_percentage NUMERIC(5, 2);
         ALTER TABLE students ADD COLUMN IF NOT EXISTS diploma_percentage NUMERIC(5, 2);
@@ -329,6 +331,7 @@ class PostgresDatabase {
   }
 
   async findStudentByRollNumber(rollNumber: string): Promise<StudentDbRow | null> {
+    await this.ready;
     const res = await this.pool.query(
       'SELECT * FROM students WHERE UPPER(roll_number) = UPPER($1) LIMIT 1',
       [rollNumber.trim()]
@@ -337,6 +340,7 @@ class PostgresDatabase {
   }
 
   async insertStudent(data: StudentInsertData): Promise<StudentDbRow> {
+    await this.ready;
     const res = await this.pool.query(
       `INSERT INTO students (
         full_name, roll_number, date_of_birth, gender, email, email_verified,
@@ -404,6 +408,7 @@ class PostgresDatabase {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const query = `SELECT * FROM students ${whereClause} ORDER BY roll_number ASC, created_at DESC`;
+    await this.ready;
     const res = await this.pool.query(query, params);
     return res.rows;
   }
@@ -411,11 +416,13 @@ class PostgresDatabase {
   async saveOtp(email: string, otpHash: string, expiresAt: Date): Promise<OtpRecord> {
     const normalized = email.trim().toLowerCase();
     // Invalidate previous unverified OTPs
+    await this.ready;
     await this.pool.query(
       'UPDATE email_otp_verifications SET expires_at = NOW() WHERE email = $1 AND verified_at IS NULL',
       [normalized]
     );
 
+    await this.ready;
     const res = await this.pool.query(
       `INSERT INTO email_otp_verifications (email, otp_hash, expires_at)
        VALUES ($1, $2, $3)
@@ -427,6 +434,7 @@ class PostgresDatabase {
 
   async getLatestActiveOtp(email: string): Promise<OtpRecord | null> {
     const normalized = email.trim().toLowerCase();
+    await this.ready;
     const res = await this.pool.query(
       `SELECT id, email, otp_hash AS "otpHash", expires_at AS "expiresAt",
               attempt_count AS "attemptCount", created_at AS "createdAt",
@@ -442,6 +450,7 @@ class PostgresDatabase {
 
   async getLastOtpSentTime(email: string): Promise<Date | null> {
     const normalized = email.trim().toLowerCase();
+    await this.ready;
     const res = await this.pool.query(
       `SELECT created_at AS "createdAt"
        FROM email_otp_verifications
@@ -454,6 +463,7 @@ class PostgresDatabase {
   }
 
   async updateOtpAttempts(id: string, attemptCount: number): Promise<void> {
+    await this.ready;
     await this.pool.query(
       'UPDATE email_otp_verifications SET attempt_count = $1 WHERE id = $2',
       [attemptCount, id]
@@ -461,6 +471,7 @@ class PostgresDatabase {
   }
 
   async markOtpVerified(id: string, token: string, tokenExpiresAt: Date): Promise<void> {
+    await this.ready;
     await this.pool.query(
       `UPDATE email_otp_verifications
        SET verified_at = NOW(), verification_token = $1, token_expires_at = $2
@@ -471,6 +482,7 @@ class PostgresDatabase {
 
   async findValidVerificationToken(email: string, token: string): Promise<OtpRecord | null> {
     const normalized = email.trim().toLowerCase();
+    await this.ready;
     const res = await this.pool.query(
       `SELECT id, email, otp_hash AS "otpHash", verification_token AS "verificationToken",
               token_expires_at AS "tokenExpiresAt", verified_at AS "verifiedAt"
@@ -483,6 +495,7 @@ class PostgresDatabase {
   }
 
   async consumeVerificationToken(id: string): Promise<void> {
+    await this.ready;
     await this.pool.query(
       'UPDATE email_otp_verifications SET verification_token = NULL, token_expires_at = NULL WHERE id = $1',
       [id]
@@ -499,12 +512,13 @@ let isUsingPostgres = false;
 if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://'))) {
   try {
     const pgDb = new PostgresDatabase(databaseUrl);
-    pgDb.initSchema().catch(err => {
-      console.warn('[DB] Failed to initialize PostgreSQL tables, falling back to memory database:', err.message);
+    pgDb.ready = pgDb.initSchema();
+    pgDb.ready.catch(err => {
+      console.error('[DB] PostgreSQL initialization failed:', err.code || 'database_error');
     });
     dbInstance = pgDb;
     isUsingPostgres = true;
-    console.log('[DB] Connected to PostgreSQL (Supabase).');
+    console.log('[DB] PostgreSQL configured; awaiting schema initialization.');
   } catch (err: any) {
     console.warn('[DB] Could not initialize PostgreSQL client, using memory database:', err.message);
     dbInstance = new MemoryDatabase();

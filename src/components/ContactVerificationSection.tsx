@@ -67,7 +67,7 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
 
       if (response.ok && data.success) {
         setOtpSent(true);
-        setOtpMessage('OTP sent to your email.');
+        setOtpMessage(data.message || 'OTP requested. Check your inbox and spam folder.');
         setCooldown(data.cooldownSeconds || 60);
       } else {
         setOtpError(data.message || 'Failed to send OTP. Please try again.');
@@ -260,7 +260,7 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
               </div>
 
               <p className="mt-2 text-xs text-gray-500">
-                A 6-digit code has been sent to your email. It is valid for 5 minutes.
+                Enter the latest 6-digit code from your email. If it has expired, request a new one.
               </p>
             </div>
           )}

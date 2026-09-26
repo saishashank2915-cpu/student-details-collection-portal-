@@ -4,7 +4,7 @@ interface FormHeaderProps {
   systemStatus?: {
     databaseConfigured: boolean;
     databaseType: string;
-    resendConfigured: boolean;
+    supabaseAuthConfigured: boolean;
   } | null;
   onOpenFacultyPortal?: () => void;
 }

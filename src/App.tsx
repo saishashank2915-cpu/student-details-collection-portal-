@@ -56,7 +56,7 @@ export default function App() {
   const [systemStatus, setSystemStatus] = useState<{
     databaseConfigured: boolean;
     databaseType: string;
-    resendConfigured: boolean;
+    supabaseAuthConfigured: boolean;
   } | null>(null);
 
   useEffect(() => {
