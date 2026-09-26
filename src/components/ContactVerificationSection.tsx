@@ -28,7 +28,6 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpMessage, setOtpMessage] = useState<string | null>(null);
-  const [devNotice, setDevNotice] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
 
@@ -44,7 +43,6 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
   const handleSendOtp = async () => {
     setOtpError(null);
     setOtpMessage(null);
-    setDevNotice(null);
 
     const emailErr = validateEmail(email);
     if (emailErr) {
@@ -52,7 +50,7 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
       return;
     }
 
-    if (cooldown > 0) return;
+    if (isSendingOtp || cooldown > 0) return;
 
     setIsSendingOtp(true);
     try {
@@ -62,15 +60,15 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({
+        success: false,
+        message: `The OTP service returned an invalid response (HTTP ${response.status}). Check the Vercel runtime logs.`,
+      }));
 
       if (response.ok && data.success) {
         setOtpSent(true);
         setOtpMessage('OTP sent to your email.');
         setCooldown(data.cooldownSeconds || 60);
-        if (data.devNotice) {
-          setDevNotice(data.devNotice);
-        }
       } else {
         setOtpError(data.message || 'Failed to send OTP. Please try again.');
         if (data.cooldownSeconds) {
@@ -104,13 +102,15 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({
+        success: false,
+        message: `The OTP service returned an invalid response (HTTP ${response.status}). Check the Vercel runtime logs.`,
+      }));
 
       if (response.ok && data.verified && data.verificationToken) {
         onVerificationSuccess(data.verificationToken);
         setOtpError(null);
         setOtpMessage(null);
-        setDevNotice(null);
         setOtpInput('');
       } else {
         setOtpError(data.message || 'Invalid OTP. Please check and try again.');
@@ -127,7 +127,6 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
     setOtpSent(false);
     setOtpInput('');
     setOtpMessage(null);
-    setDevNotice(null);
     setOtpError(null);
     setCooldown(0);
   };
@@ -224,11 +223,8 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
             <p className="mt-2 text-xs font-medium text-emerald-700">{otpMessage}</p>
           )}
 
-          {/* Dev/Preview Mode Notice if Resend is not configured */}
-          {devNotice && !isEmailVerified && (
-            <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
-              {devNotice}
-            </p>
+          {otpError && !isEmailVerified && (
+            <p role="alert" className="mt-2 text-xs text-red-600 font-medium">{otpError}</p>
           )}
 
           {/* OTP Input Row when sent and not yet verified */}
@@ -262,10 +258,6 @@ export const ContactVerificationSection: React.FC<ContactVerificationProps> = ({
                   {isVerifyingOtp ? 'Verifying...' : 'Verify OTP'}
                 </button>
               </div>
-
-              {otpError && (
-                <p className="mt-2 text-xs text-red-600 font-medium">{otpError}</p>
-              )}
 
               <p className="mt-2 text-xs text-gray-500">
                 A 6-digit code has been sent to your email. It is valid for 5 minutes.

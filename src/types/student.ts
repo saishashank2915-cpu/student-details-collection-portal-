@@ -92,7 +92,6 @@ export interface OtpSendResponse {
   success: boolean;
   message: string;
   cooldownSeconds?: number;
-  devNotice?: string;
 }
 
 export interface OtpVerifyResponse {
