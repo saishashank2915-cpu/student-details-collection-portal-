@@ -68,7 +68,13 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
     'Other',
   ];
 
+  // UPDATED: Added earlier years (2018-2022) so users can select their 10th and Inter YOP
   const passingYears = [
+    '2018',
+    '2019',
+    '2020',
+    '2021',
+    '2022',
     '2023',
     '2024',
     '2025',
@@ -91,7 +97,6 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
       onChange('percentage', '');
     }
   };
-
 
   const handleBacklogsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -200,7 +205,6 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
                 <label htmlFor="cgpa" className="block text-sm font-medium text-gray-700">
                   B.Tech CGPA (0–10) <span className="text-red-500">*</span>
                 </label>
-
               </div>
               <input
                 id="cgpa"
@@ -216,7 +220,6 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
               {errors.cgpa && (
                 <p className="mt-1 text-xs text-red-600">{errors.cgpa}</p>
               )}
-
             </div>
 
             {/* B.Tech Percentage */}
