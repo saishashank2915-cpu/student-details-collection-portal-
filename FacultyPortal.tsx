@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { StudentRecord } from '../types/student';
 import { CollegeBanner } from './CollegeBanner';
@@ -30,6 +30,12 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
   const [isLoadingStudents, setIsLoadingStudents] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
+  const requestVersion = useRef(0);
+  const deleteInProgress = useRef(false);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedYop, setSelectedYop] = useState<string>('ALL');
@@ -51,6 +57,7 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
   // Fetch students when authenticated
   const fetchStudents = async () => {
     if (!token) return;
+    const version = ++requestVersion.current;
     setIsLoadingStudents(true);
     setLoadError(null);
 
@@ -72,6 +79,7 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
         },
       });
 
+      if (version !== requestVersion.current) return;
       if (res.status === 401) {
         // Token expired
         handleLogout();
@@ -80,15 +88,16 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
       }
 
       const data = await res.json();
+      if (version !== requestVersion.current) return;
       if (res.ok && data.success) {
         setStudents(data.students || []);
       } else {
         setLoadError(data.message || 'Failed to load students.');
       }
     } catch {
-      setLoadError('Network error while retrieving students.');
+      if (version === requestVersion.current) setLoadError('Network error while retrieving students.');
     } finally {
-      setIsLoadingStudents(false);
+      if (version === requestVersion.current) setIsLoadingStudents(false);
     }
   };
 
@@ -137,6 +146,10 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
 
   // Handle Logout
   const handleLogout = () => {
+    requestVersion.current += 1;
+    setIsLoadingStudents(false);
+    setDeleteError(null);
+    setDeleteMessage(null);
     setToken('');
     setFacultyDept('');
     setFacultyDeptName('');
@@ -144,6 +157,44 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     localStorage.removeItem('faculty_dept');
     localStorage.removeItem('faculty_dept_name');
     setStudents([]);
+  };
+
+  const handleDeleteStudent = async (student: StudentRecord) => {
+    if (deleteInProgress.current) return;
+    const confirmed = window.confirm(
+      `Delete ${student.full_name} (${student.roll_number})?\n\nThis permanently removes this student registration. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    deleteInProgress.current = true;
+    setDeletingId(student.id);
+    setDeleteError(null);
+    setDeleteMessage(null);
+    try {
+      const response = await fetch('/api/faculty/students', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: student.id }),
+      });
+      if (response.status === 401) {
+        handleLogout();
+        setLoginError('Session expired. Please log in again.');
+        return;
+      }
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        setDeleteError(data?.message || 'Could not delete the student. Please try again.');
+        return;
+      }
+      requestVersion.current += 1;
+      setIsLoadingStudents(false);
+      setStudents((current) => current.filter((item) => item.id !== student.id));
+      setDeleteMessage(`Deleted registration for ${student.full_name} (${student.roll_number}).`);
+    } catch {
+      setDeleteError('Unable to confirm deletion. Refresh the records before trying again.');
+    } finally {
+      deleteInProgress.current = false;
+      setDeletingId(null);
+    }
   };
 
   // Filtered students for client-side search instant reactivity
@@ -572,6 +623,13 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
         </div>
       )}
 
+      {deleteError && (
+        <div role="alert" className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-6">{deleteError}</div>
+      )}
+      {deleteMessage && (
+        <div role="status" className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 mb-6">{deleteMessage}</div>
+      )}
+
       {/* Students Data Table Card */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -608,6 +666,7 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                   <th className="py-3 px-4">#</th>
                   <th className="py-3 px-4">Roll Number</th>
                   <th className="py-3 px-4">Full Name</th>
+                  <th className="py-3 px-4">Action</th>
                   <th className="py-3 px-4">Branch</th>
                   <th className="py-3 px-4">B.Tech CGPA</th>
                   <th className="py-3 px-4">Inter / Diploma</th>
@@ -629,6 +688,17 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                     </td>
                     <td className="py-3 px-4 font-medium text-gray-900 whitespace-nowrap">
                       {s.full_name}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStudent(s)}
+                        disabled={deletingId !== null}
+                        aria-label={`Delete registration for ${s.full_name}, ${s.roll_number}`}
+                        className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {deletingId === s.id ? 'Deleting...' : 'Delete'}
+                      </button>
                     </td>
                     <td className="py-3 px-4 text-xs font-medium text-blue-700">
                       <span className="bg-blue-50 px-2 py-0.5 rounded border border-blue-100 whitespace-nowrap">

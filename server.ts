@@ -1,3 +1,4 @@
+import facultyStudentsHandler from './api/faculty/students.js';
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -397,6 +398,8 @@ app.post('/api/faculty/login', (req: Request, res: Response) => {
 });
 
 // 3. Faculty: Query Students (Department Scoped)
+app.delete('/api/faculty/students', facultyStudentsHandler);
+
 app.get('/api/faculty/students', async (req: Request, res: Response) => {
   try {
     const session = extractFacultySession(req);
