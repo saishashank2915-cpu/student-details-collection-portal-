@@ -79,7 +79,7 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
     '2030',
   ];
 
-  const tenthPassingYears = ['2020', '2021', '2022', ...passingYears];
+  const schoolPassingYears = ['2020', '2021', '2022', ...passingYears];
 
   const handleCgpaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -341,7 +341,7 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
               <div>
                 <label htmlFor="intermediateYearOfPassing" className="block text-sm font-medium text-gray-700 mb-1.5">Intermediate Year of Passing</label>
                 <select id="intermediateYearOfPassing" value={intermediateYearOfPassing} onChange={(e) => onChange('intermediateYearOfPassing', e.target.value)} className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-600">
-                  <option value="">Select Year of Passing</option>{passingYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
+                  <option value="">Select Year of Passing</option>{schoolPassingYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
                 </select>
                 {errors.intermediateYearOfPassing && <p className="mt-1 text-xs text-red-600">{errors.intermediateYearOfPassing}</p>}
               </div>
@@ -364,7 +364,7 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
               <div>
                 <label htmlFor="intermediateYearOfPassing" className="block text-sm font-medium text-gray-700 mb-1.5">Diploma Year of Passing</label>
                 <select id="intermediateYearOfPassing" value={intermediateYearOfPassing} onChange={(e) => onChange('intermediateYearOfPassing', e.target.value)} className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-600">
-                  <option value="">Select Year of Passing</option>{passingYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
+                  <option value="">Select Year of Passing</option>{schoolPassingYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
                 </select>
                 {errors.intermediateYearOfPassing && <p className="mt-1 text-xs text-red-600">{errors.intermediateYearOfPassing}</p>}
               </div>
@@ -391,7 +391,7 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
             <div>
               <label htmlFor="tenthYearOfPassing" className="block text-sm font-medium text-gray-700 mb-1.5">10th Year of Passing</label>
               <select id="tenthYearOfPassing" value={tenthYearOfPassing} onChange={(e) => onChange('tenthYearOfPassing', e.target.value)} className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-600">
-                <option value="">Select Year of Passing</option>{tenthPassingYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
+                <option value="">Select Year of Passing</option>{schoolPassingYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
               </select>
               {errors.tenthYearOfPassing && <p className="mt-1 text-xs text-red-600">{errors.tenthYearOfPassing}</p>}
             </div>
