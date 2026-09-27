@@ -136,7 +136,7 @@ export default async function handler(req: any, res: any) {
     ];
     if (!branch || !validBranches.includes(branch)) {
       errors.branch = 'Please select your branch.';
-    } else if (branch === 'Other' && (!otherBranch || !otherBranch.trim())) {
+    } else if (branch === 'Other' && (!otherBranch || !String(otherBranch).trim())) {
       errors.otherBranch = 'Please specify your branch/department.';
     }
 
@@ -189,7 +189,8 @@ export default async function handler(req: any, res: any) {
     }
 
     // 14. Verify B.Tech Year of Passing
-    if (!btechYearOfPassing || typeof btechYearOfPassing !== 'string' || !btechYearOfPassing.trim()) {
+    const btechYopStr = String(btechYearOfPassing || '');
+    if (!btechYopStr.trim()) {
       errors.btechYearOfPassing = 'Please select your B.Tech Year of Passing.';
     }
 
@@ -214,7 +215,7 @@ export default async function handler(req: any, res: any) {
     }
 
     // 12. Check duplicate roll number
-    const normalizedRoll = rollNumber.trim().toUpperCase();
+    const normalizedRoll = String(rollNumber || '').trim().toUpperCase();
     const existingStudent = await db.findStudentByRollNumber(normalizedRoll);
     if (existingStudent) {
       return res.status(400).json({
@@ -235,13 +236,14 @@ export default async function handler(req: any, res: any) {
         gender,
         email: cleanEmail,
         emailVerified: true,
-        mobileNumber: mobileNumber.trim(),
+        // SAFE CONVERSIONS: Wrapped variables in String() to prevent .trim() crashes from Android inputs
+        mobileNumber: String(mobileNumber || '').trim(),
         aadharNumber: cleanAadhar,
         panNumber: cleanPan || null,
         passportNumber: cleanPassport || null,
         college: trimmedCollege,
         branch,
-        otherBranch: branch === 'Other' ? otherBranch.trim() : null,
+        otherBranch: branch === 'Other' && otherBranch ? String(otherBranch).trim() : null,
         cgpa: numCgpa,
         percentage: numPct,
         activeBacklogs: numBacklogs,
@@ -273,6 +275,9 @@ export default async function handler(req: any, res: any) {
         },
       });
     } catch (dbError: any) {
+      // EXPOSE DATABASE ERRORS: This forces the actual issue to print to Vercel logs AND your frontend
+      console.error('[DB INSERT ERROR]:', dbError);
+      
       if (dbError.code === '23505') {
         return res.status(400).json({
           success: false,
@@ -284,14 +289,15 @@ export default async function handler(req: any, res: any) {
       }
       return res.status(500).json({
         success: false,
-        message: 'Failed to save student details. Please try again.',
+        message: dbError?.message || dbError?.toString() || 'Database insertion failed.',
+        errorDetails: dbError
       });
     }
   } catch (error: any) {
     console.error('Vercel handler error in /api/students/submit:', error);
     return res.status(500).json({
       success: false,
-      message: 'An unexpected server error occurred.',
+      message: error?.message || 'An unexpected server error occurred.',
     });
   }
 }
