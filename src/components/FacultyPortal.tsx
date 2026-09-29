@@ -31,6 +31,11 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
+  // Edit Modal State
+  const [editingStudent, setEditingStudent] = useState<StudentRecord | null>(null);
+  const [editFormData, setEditFormData] = useState<Partial<StudentRecord>>({});
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedYop, setSelectedYop] = useState<string>('ALL');
@@ -121,6 +126,53 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     } finally {
       setIsDeleting(null);
     }
+  };
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    
+    setIsUpdating(true);
+    try {
+      const res = await fetch('/api/faculty/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id: editingStudent.id, updates: editFormData }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Update local state without refetching all records
+        setStudents((prev) => prev.map((s) => (s.id === editingStudent.id ? { ...s, ...data.student } : s)));
+        setEditingStudent(null);
+        alert('Student details updated successfully!');
+      } else {
+        alert(data.message || 'Failed to update student details.');
+      }
+    } catch (err) {
+      alert('Network error while updating details. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const openEditModal = (student: StudentRecord) => {
+    setEditingStudent(student);
+    setEditFormData({
+      first_name: student.first_name,
+      last_name: student.last_name,
+      roll_number: student.roll_number,
+      branch: student.branch,
+      cgpa: student.cgpa,
+      percentage: student.percentage,
+      active_backlogs: student.active_backlogs,
+      email: student.email,
+      mobile_number: student.mobile_number,
+      btech_year_of_passing: student.btech_year_of_passing,
+    });
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -396,7 +448,7 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
   }
 
   return (
-    <div className="max-w-6xl mx-auto my-6 px-4">
+    <div className="max-w-6xl mx-auto my-6 px-4 relative">
       <CollegeBanner />
       <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden mb-6">
         <div className="h-2.5 bg-blue-700 w-full" />
@@ -469,19 +521,16 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
           <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
           <p className="text-[11px] text-gray-400 mt-0.5">In current filter view</p>
         </div>
-
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Average CGPA</p>
           <p className="text-2xl font-bold text-blue-600 mt-1">{stats.avgCgpa}</p>
           <p className="text-[11px] text-gray-400 mt-0.5">Scale of 0.00 – 10.00</p>
         </div>
-
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">0 Backlogs (Clean)</p>
           <p className="text-2xl font-bold text-emerald-600 mt-1">{stats.zeroBacklogs}</p>
           <p className="text-[11px] text-gray-400 mt-0.5">All clear students</p>
         </div>
-
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Active Backlogs</p>
           <p className="text-2xl font-bold text-amber-600 mt-1">{stats.activeBacklogsCount}</p>
@@ -668,27 +717,38 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                       +91 {s.mobile_number}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleDeleteStudent(s.id, s.roll_number)}
-                        disabled={isDeleting === s.id}
-                        className={`p-1.5 rounded-md transition-colors ${
-                          isDeleting === s.id
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 cursor-pointer'
-                        }`}
-                        title={`Delete ${s.roll_number}`}
-                      >
-                        {isDeleting === s.id ? (
-                          <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                          </svg>
-                        ) : (
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => openEditModal(s)}
+                          className="p-1.5 rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 transition-colors cursor-pointer"
+                          title="Modify Details"
+                        >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
-                        )}
-                      </button>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStudent(s.id, s.roll_number)}
+                          disabled={isDeleting === s.id}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            isDeleting === s.id
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 cursor-pointer'
+                          }`}
+                          title={`Delete ${s.roll_number}`}
+                        >
+                          {isDeleting === s.id ? (
+                            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -697,6 +757,77 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
           </div>
         )}
       </div>
+
+      {/* Edit Student Modal Popup */}
+      {editingStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-900">Modify Student Details</h3>
+              <button onClick={() => setEditingStudent(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              <form id="editStudentForm" onSubmit={handleUpdateStudent} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                    <input type="text" value={editFormData.first_name || ''} onChange={e => setEditFormData({...editFormData, first_name: e.target.value.toUpperCase()})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                    <input type="text" value={editFormData.last_name || ''} onChange={e => setEditFormData({...editFormData, last_name: e.target.value.toUpperCase()})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
+                    <input type="text" value={editFormData.roll_number || ''} onChange={e => setEditFormData({...editFormData, roll_number: e.target.value.toUpperCase()})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" maxLength={10} required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <input type="text" value={editFormData.branch || ''} onChange={e => setEditFormData({...editFormData, branch: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">B.Tech CGPA</label>
+                    <input type="number" step="0.01" value={editFormData.cgpa || ''} onChange={e => setEditFormData({...editFormData, cgpa: parseFloat(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Percentage</label>
+                    <input type="number" step="0.01" value={editFormData.percentage || ''} onChange={e => setEditFormData({...editFormData, percentage: parseFloat(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Active Backlogs</label>
+                    <input type="number" value={editFormData.active_backlogs === undefined ? '' : editFormData.active_backlogs} onChange={e => setEditFormData({...editFormData, active_backlogs: parseInt(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Passing Year (YOP)</label>
+                    <input type="text" value={editFormData.btech_year_of_passing || ''} onChange={e => setEditFormData({...editFormData, btech_year_of_passing: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <input type="email" value={editFormData.email || ''} onChange={e => setEditFormData({...editFormData, email: e.target.value.toLowerCase()})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
+                    <input type="text" value={editFormData.mobile_number || ''} onChange={e => setEditFormData({...editFormData, mobile_number: e.target.value.replace(/\D/g, '')})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" maxLength={10} required />
+                  </div>
+                </div>
+              </form>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <button type="button" onClick={() => setEditingStudent(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer">
+                Cancel
+              </button>
+              <button type="submit" form="editStudentForm" disabled={isUpdating} className={`px-4 py-2 text-sm font-medium text-white rounded-md cursor-pointer ${isUpdating ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {isUpdating ? 'Saving Changes...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
