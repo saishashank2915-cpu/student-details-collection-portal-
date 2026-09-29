@@ -29,6 +29,7 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -36,7 +37,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
   const [selectedAdminBranch, setSelectedAdminBranch] = useState<string>('ALL');
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
-  // Fetch departments list for login
   useEffect(() => {
     fetch('/api/faculty/departments')
       .then((res) => res.json())
@@ -48,7 +48,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
       .catch(() => {});
   }, []);
 
-  // Fetch students when authenticated
   const fetchStudents = async () => {
     if (!token) return;
     setIsLoadingStudents(true);
@@ -67,13 +66,10 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
       }
 
       const res = await fetch(`/api/faculty/students?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.status === 401) {
-        // Token expired
         handleLogout();
         setLoginError('Session expired. Please log in again.');
         return;
@@ -98,7 +94,35 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     }
   }, [token, selectedAdminBranch, selectedYop]);
 
-  // Handle Login
+  const handleDeleteStudent = async (id: string, rollNumber: string) => {
+    if (!window.confirm(`WARNING: Are you sure you want to delete the record for ${rollNumber}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(id);
+    try {
+      const res = await fetch('/api/faculty/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStudents((prev) => prev.filter((s) => s.id !== id));
+      } else {
+        alert(data.message || 'Failed to delete student.');
+      }
+    } catch (err) {
+      alert('Network error while deleting student. Please try again.');
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
@@ -135,7 +159,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     }
   };
 
-  // Handle Logout
   const handleLogout = () => {
     setToken('');
     setFacultyDept('');
@@ -146,7 +169,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     setStudents([]);
   };
 
-  // Filtered students for client-side search instant reactivity
   const filteredStudents = useMemo(() => {
     let result = students;
     if (selectedYop !== 'ALL') {
@@ -156,7 +178,8 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
         (s) =>
-          s.full_name.toLowerCase().includes(q) ||
+          s.first_name.toLowerCase().includes(q) ||
+          s.last_name.toLowerCase().includes(q) ||
           s.roll_number.toLowerCase().includes(q) ||
           s.email.toLowerCase().includes(q) ||
           s.mobile_number.includes(q)
@@ -165,7 +188,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     return result;
   }, [students, selectedYop, searchQuery]);
 
-  // Department statistics
   const stats = useMemo(() => {
     const total = filteredStudents.length;
     if (total === 0) {
@@ -179,11 +201,9 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     return { total, avgCgpa, zeroBacklogs, activeBacklogsCount };
   }, [filteredStudents]);
 
-  // Export to Excel (.xlsx)
   const handleExportToExcel = async () => {
     setIsExporting(true);
     try {
-      // Direct download via server API
       const params = new URLSearchParams();
       params.append('token', token);
       if (facultyDept === 'ALL' && selectedAdminBranch !== 'ALL') {
@@ -197,8 +217,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
       }
 
       const exportUrl = `/api/faculty/export?${params.toString()}`;
-
-      // Trigger browser download via fetch blob for maximum reliability
       const response = await fetch(exportUrl);
       if (response.ok) {
         const blob = await response.blob();
@@ -212,7 +230,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
         a.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        // Client-side fallback using installed xlsx library
         clientSideExcelExport();
       }
     } catch {
@@ -222,12 +239,12 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     }
   };
 
-  // Client-side Excel export fallback
   const clientSideExcelExport = () => {
     const exportData = filteredStudents.map((s, idx) => ({
       'S.No': idx + 1,
       'Roll Number / Hall Ticket': s.roll_number,
-      'Full Name': s.full_name,
+      'First Name': s.first_name,
+      'Last Name': s.last_name,
       'Department / Branch': s.branch === 'Other' && s.other_branch ? `${s.branch} (${s.other_branch})` : s.branch,
       'Academic Session': '2026–2027',
       'College / Institution': s.college,
@@ -248,22 +265,9 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     worksheet['!cols'] = [
-      { wch: 6 },
-      { wch: 18 },
-      { wch: 25 },
-      { wch: 20 },
-      { wch: 18 }, // Academic Session
-      { wch: 14 },
-      { wch: 35 },
-      { wch: 28 },
-      { wch: 16 },
-      { wch: 14 },
-      { wch: 10 },
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 15 },
-      { wch: 22 },
-      { wch: 36 },
+      { wch: 6 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 18 }, { wch: 25 },
+      { wch: 35 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
+      { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 22 }, { wch: 36 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -272,15 +276,12 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     XLSX.writeFile(workbook, `AVN_Students_${sheetTitle}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // RENDER: LOGIN SCREEN IF NOT AUTHENTICATED
   if (!token) {
     return (
       <div className="max-w-4xl mx-auto my-6 sm:my-8 px-4">
         <CollegeBanner />
         <div className="max-w-xl mx-auto bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
-          {/* Top Blue Accent Bar */}
           <div className="h-2.5 bg-blue-700 w-full" />
-
           <div className="p-6 sm:p-8">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-semibold uppercase tracking-wider text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-100">
@@ -325,7 +326,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
             )}
 
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
-              {/* Department Selector */}
               <div>
                 <label htmlFor="deptSelect" className="block text-sm font-medium text-gray-700 mb-1">
                   Select Department <span className="text-red-500">*</span>
@@ -358,7 +358,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                 </select>
               </div>
 
-              {/* Password */}
               <div>
                 <label htmlFor="deptPassword" className="block text-sm font-medium text-gray-700 mb-1">
                   Faculty Department Password <span className="text-red-500">*</span>
@@ -373,7 +372,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                 />
               </div>
 
-              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={isLoggingIn}
@@ -397,11 +395,9 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     );
   }
 
-  // RENDER: AUTHENTICATED DEPARTMENT PORTAL & EXCEL EXPORT
   return (
     <div className="max-w-6xl mx-auto my-6 px-4">
       <CollegeBanner />
-      {/* Top Banner & Faculty Header */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden mb-6">
         <div className="h-2.5 bg-blue-700 w-full" />
         <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -432,7 +428,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Export to Excel Button */}
             <button
               type="button"
               onClick={handleExportToExcel}
@@ -449,7 +444,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
               {isExporting ? 'Exporting...' : 'Export to Excel (.xlsx)'}
             </button>
 
-            {/* Back to Student Form */}
             <button
               type="button"
               onClick={onBackToStudentForm}
@@ -458,7 +452,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
               Student Form
             </button>
 
-            {/* Logout */}
             <button
               type="button"
               onClick={handleLogout}
@@ -470,7 +463,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Registered Students</p>
@@ -497,10 +489,8 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
         </div>
       </div>
 
-      {/* Filters & Search Toolbar */}
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-xs mb-6">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          {/* Search Input */}
           <div className="relative flex-1">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -517,7 +507,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* If Admin/ALL, allow branch switching */}
             {facultyDept === 'ALL' && (
               <select
                 value={selectedAdminBranch}
@@ -537,7 +526,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
               </select>
             )}
 
-            {/* Passing Year (YOP) Filter */}
             <select
               value={selectedYop}
               onChange={(e) => setSelectedYop(e.target.value)}
@@ -549,7 +537,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
               ))}
             </select>
 
-            {/* Refresh Button */}
             <button
               type="button"
               onClick={fetchStudents}
@@ -565,14 +552,12 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
         </div>
       </div>
 
-      {/* Error state */}
       {loadError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-6">
           {loadError}
         </div>
       )}
 
-      {/* Students Data Table Card */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide">
@@ -607,7 +592,8 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                 <tr>
                   <th className="py-3 px-4">#</th>
                   <th className="py-3 px-4">Roll Number</th>
-                  <th className="py-3 px-4">Full Name</th>
+                  <th className="py-3 px-4">First Name</th>
+                  <th className="py-3 px-4">Last Name</th>
                   <th className="py-3 px-4">Branch</th>
                   <th className="py-3 px-4">B.Tech CGPA</th>
                   <th className="py-3 px-4">Inter / Diploma</th>
@@ -617,7 +603,7 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                   <th className="py-3 px-4">Backlogs</th>
                   <th className="py-3 px-4">Email</th>
                   <th className="py-3 px-4">Mobile</th>
-                  <th className="py-3 px-4">Submitted At</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -628,7 +614,10 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                       {s.roll_number}
                     </td>
                     <td className="py-3 px-4 font-medium text-gray-900 whitespace-nowrap">
-                      {s.full_name}
+                      {s.first_name}
+                    </td>
+                    <td className="py-3 px-4 font-medium text-gray-900 whitespace-nowrap">
+                      {s.last_name}
                     </td>
                     <td className="py-3 px-4 text-xs font-medium text-blue-700">
                       <span className="bg-blue-50 px-2 py-0.5 rounded border border-blue-100 whitespace-nowrap">
@@ -673,16 +662,33 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                     <td className="py-3 px-4 text-xs text-gray-600">
                       <div className="flex items-center gap-1">
                         <span>{s.email}</span>
-                        <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
                       </div>
                     </td>
                     <td className="py-3 px-4 text-xs text-gray-600 font-mono whitespace-nowrap">
                       +91 {s.mobile_number}
                     </td>
-                    <td className="py-3 px-4 text-[11px] text-gray-400 whitespace-nowrap">
-                      {s.created_at ? new Date(s.created_at).toLocaleDateString('en-IN') : 'Recent'}
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={() => handleDeleteStudent(s.id, s.roll_number)}
+                        disabled={isDeleting === s.id}
+                        className={`p-1.5 rounded-md transition-colors ${
+                          isDeleting === s.id
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 cursor-pointer'
+                        }`}
+                        title={`Delete ${s.roll_number}`}
+                      >
+                        {isDeleting === s.id ? (
+                          <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
                     </td>
                   </tr>
                 ))}
