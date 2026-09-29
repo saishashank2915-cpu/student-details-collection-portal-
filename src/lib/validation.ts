@@ -1,7 +1,8 @@
 import type { StudentFormData } from '../types/student.js';
 
 export interface ValidationErrors {
-  fullName?: string;
+  firstName?: string;
+  lastName?: string;
   rollNumber?: string;
   dateOfBirth?: string;
   gender?: string;
@@ -107,23 +108,31 @@ export function validateStudentForm(
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
-  // 1. Full Name
-  const trimmedName = data.fullName.trim();
-  if (!trimmedName) {
-    errors.fullName = 'Full name is required.';
-  } else if (trimmedName.length < 2) {
-    errors.fullName = 'Full name must be at least 2 characters.';
-  } else if (trimmedName.length > 100) {
-    errors.fullName = 'Full name cannot exceed 100 characters.';
+  // 1. First Name
+  const trimmedFirstName = (data.firstName || '').trim();
+  if (!trimmedFirstName) {
+    errors.firstName = 'First name is required.';
+  } else if (trimmedFirstName.length < 2) {
+    errors.firstName = 'First name must be at least 2 characters.';
+  } else if (trimmedFirstName.length > 50) {
+    errors.firstName = 'First name cannot exceed 50 characters.';
   }
 
-  // 2. Roll Number
+  // 2. Last Name
+  const trimmedLastName = (data.lastName || '').trim();
+  if (!trimmedLastName) {
+    errors.lastName = 'Last name is required.';
+  } else if (trimmedLastName.length > 50) {
+    errors.lastName = 'Last name cannot exceed 50 characters.';
+  }
+
+  // 3. Roll Number
   const rollErr = validateRollNumber(data.rollNumber);
   if (rollErr) {
     errors.rollNumber = rollErr;
   }
 
-  // 3. Date of Birth
+  // 4. Date of Birth
   if (!data.dateOfBirth) {
     errors.dateOfBirth = 'Date of birth is required.';
   } else {
@@ -137,14 +146,14 @@ export function validateStudentForm(
     }
   }
 
-  // 4. Gender
+  // 5. Gender
   if (!data.gender) {
     errors.gender = 'Please select a gender.';
   } else if (!['Male', 'Female', 'Other'].includes(data.gender)) {
     errors.gender = 'Please select a valid gender option.';
   }
 
-  // 5. Email & Verification
+  // 6. Email & Verification
   const emailErr = validateEmail(data.email);
   if (emailErr) {
     errors.email = emailErr;
@@ -152,13 +161,13 @@ export function validateStudentForm(
     errors.email = 'Please verify your email before submitting.';
   }
 
-  // 6. Mobile Number
+  // 7. Mobile Number
   const mobileErr = validateMobileNumber(data.mobileNumber);
   if (mobileErr) {
     errors.mobileNumber = mobileErr;
   }
 
-  // 7. Identity documents
+  // 8. Identity documents
   const cleanAadhar = (data.aadharNumber || '').replace(/\s/g, '');
   if (!/^\d{12}$/.test(cleanAadhar)) {
     errors.aadharNumber = 'Aadhaar number must be exactly 12 digits.';
@@ -170,7 +179,7 @@ export function validateStudentForm(
     errors.passportNumber = 'Please enter a valid Passport number.';
   }
 
-  // 7. College / Institution
+  // 9. College / Institution
   const trimmedCollege = data.college.trim();
   if (!trimmedCollege) {
     errors.college = 'College / Institution is required.';
@@ -178,14 +187,14 @@ export function validateStudentForm(
     errors.college = 'College name cannot exceed 200 characters.';
   }
 
-  // 8. Branch / Department
+  // 10. Branch / Department
   if (!data.branch) {
     errors.branch = 'Please select your branch.';
   } else if (data.branch === 'Other' && !data.otherBranch.trim()) {
     errors.otherBranch = 'Please specify your branch/department.';
   }
 
-  // 10. CGPA & Percentage
+  // 11. CGPA & Percentage
   const cgpaNum = parseFloat(data.cgpa);
   const pctNum = parseFloat(data.percentage);
 
@@ -207,7 +216,7 @@ export function validateStudentForm(
     }
   }
 
-  // 11. Active Backlogs
+  // 12. Active Backlogs
   if (data.activeBacklogs === undefined || data.activeBacklogs === null || isNaN(data.activeBacklogs)) {
     errors.activeBacklogs = 'Active backlogs is required.';
   } else if (!Number.isInteger(Number(data.activeBacklogs))) {
@@ -216,14 +225,14 @@ export function validateStudentForm(
     errors.activeBacklogs = 'Active backlogs cannot be negative.';
   }
 
-  // 12. Intermediate / Diploma Selection
+  // 13. Intermediate / Diploma Selection
   if (!data.intermediateOrDiploma) {
     errors.intermediateOrDiploma = 'Please select Intermediate or Diploma.';
   } else if (!['Intermediate', 'Diploma'].includes(data.intermediateOrDiploma)) {
     errors.intermediateOrDiploma = 'Please select a valid option (Intermediate or Diploma).';
   }
 
-  // 13. Intermediate / Diploma CGPA, calculated percentage and year of passing
+  // 14. Intermediate / Diploma CGPA, calculated percentage and year of passing
   if (data.intermediateOrDiploma === 'Intermediate') {
     const intCgpaNum = parseFloat(data.intermediateCgpa);
     const intPctNum = parseFloat(data.intermediatePercentage);
@@ -238,19 +247,19 @@ export function validateStudentForm(
     if (!data.intermediateYearOfPassing) errors.intermediateYearOfPassing = 'Diploma Year of Passing is required.';
   }
 
-  // 14. 10th CGPA, calculated percentage and year of passing
+  // 15. 10th CGPA, calculated percentage and year of passing
   const tenthCgpaNum = parseFloat(data.tenthCgpa);
   const tenthPctNum = parseFloat(data.tenthPercentage);
   if (!data.tenthCgpa || isNaN(tenthCgpaNum) || tenthCgpaNum < 0 || tenthCgpaNum > 10) errors.tenthCgpa = '10th CGPA must be between 0 and 10.';
   if (!data.tenthPercentage || isNaN(tenthPctNum) || tenthPctNum < 0 || tenthPctNum > 100) errors.tenthPercentage = '10th percentage must be between 0 and 100.';
   if (!data.tenthYearOfPassing) errors.tenthYearOfPassing = '10th Year of Passing is required.';
 
-  // 15. CRT registration
+  // 16. CRT registration
   if (!['Registered', 'Not Registered'].includes(data.crtRegistration)) {
     errors.crtRegistration = 'Please select your CRT registration status.';
   }
 
-  // 16. B.Tech Year of Passing (YOP)
+  // 17. B.Tech Year of Passing (YOP)
   if (!data.btechYearOfPassing) errors.btechYearOfPassing = 'Please select your B.Tech Year of Passing.';
 
   return {
