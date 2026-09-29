@@ -10,7 +10,9 @@ import { StudentFormData, SubmitResponse } from './types/student';
 import { validateStudentForm, ValidationErrors } from './lib/validation';
 
 const INITIAL_FORM_DATA: StudentFormData = {
-  fullName: '',
+  // Split name fields
+  firstName: '',
+  lastName: '',
   rollNumber: '',
   dateOfBirth: '',
   gender: '',
@@ -47,7 +49,7 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submittedStudent, setSubmittedStudent] = useState<{
-    name: string;
+    name: string; // Combined name for success screen
     rollNumber: string;
     email: string;
     submissionId: string;
@@ -154,8 +156,9 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // Apply strict sanitization for Android auto-spacing and formatting
-          fullName: formData.fullName.trim(),
+          // Send split names to backend
+          firstName: formData.firstName.trim().toUpperCase(),
+          lastName: formData.lastName.trim().toUpperCase(),
           rollNumber: formData.rollNumber.trim().toUpperCase(),
           dateOfBirth: formData.dateOfBirth,
           gender: formData.gender,
@@ -280,7 +283,8 @@ export default function App() {
         <form onSubmit={handleSubmit} noValidate>
           {/* Section 1: Personal Details */}
           <PersonalDetailsSection
-            fullName={formData.fullName}
+            firstName={formData.firstName}
+            lastName={formData.lastName}
             rollNumber={formData.rollNumber}
             dateOfBirth={formData.dateOfBirth}
             gender={formData.gender}
