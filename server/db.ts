@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto';
 const { Pool } = pg;
 
 export interface StudentInsertData {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   rollNumber: string;
   dateOfBirth: string;
   gender: string;
@@ -35,7 +36,8 @@ export interface StudentInsertData {
 
 export interface StudentDbRow {
   id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   roll_number: string;
   date_of_birth: string;
   gender: string;
@@ -78,7 +80,7 @@ export interface OtpRecord {
   createdAt: Date;
 }
 
-// Memory fallback store for environments where DATABASE_URL is not yet provided
+// Memory fallback store 
 class MemoryDatabase {
   private students = new Map<string, StudentDbRow>();
   private otpRecords: OtpRecord[] = [];
@@ -105,7 +107,8 @@ class MemoryDatabase {
     const now = new Date().toISOString();
     const row: StudentDbRow = {
       id,
-      full_name: data.fullName.trim(),
+      first_name: data.firstName.trim(),
+      last_name: data.lastName.trim(),
       roll_number: data.rollNumber.trim().toUpperCase(),
       date_of_birth: data.dateOfBirth,
       gender: data.gender,
@@ -155,7 +158,8 @@ class MemoryDatabase {
     if (filter?.search) {
       const q = filter.search.trim().toLowerCase();
       list = list.filter(s =>
-        s.full_name.toLowerCase().includes(q) ||
+        s.first_name.toLowerCase().includes(q) ||
+        s.last_name.toLowerCase().includes(q) ||
         s.roll_number.toLowerCase().includes(q) ||
         s.email.toLowerCase().includes(q) ||
         s.mobile_number.includes(q)
@@ -164,9 +168,16 @@ class MemoryDatabase {
     return list.sort((a, b) => a.roll_number.localeCompare(b.roll_number));
   }
 
+  async deleteStudent(id: string): Promise<boolean> {
+    if (this.students.has(id)) {
+      this.students.delete(id);
+      return true;
+    }
+    return false;
+  }
+
   async saveOtp(email: string, otpHash: string, expiresAt: Date): Promise<OtpRecord> {
     const normalized = email.trim().toLowerCase();
-    // Invalidate previous unverified OTPs for this email
     this.otpRecords = this.otpRecords.filter(r => !(r.email === normalized && !r.verifiedAt));
 
     const record: OtpRecord = {
@@ -256,7 +267,8 @@ class PostgresDatabase {
       await client.query(`
         CREATE TABLE IF NOT EXISTS students (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          full_name VARCHAR(100) NOT NULL,
+          first_name VARCHAR(100) NOT NULL,
+          last_name VARCHAR(100) NOT NULL,
           roll_number VARCHAR(30) UNIQUE NOT NULL,
           date_of_birth DATE NOT NULL,
           gender VARCHAR(20) NOT NULL,
@@ -288,23 +300,9 @@ class PostgresDatabase {
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );
 
-        -- Add columns to existing table if already created earlier
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS year_of_study VARCHAR(30);
-        ALTER TABLE students ALTER COLUMN year_of_study DROP NOT NULL;
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS intermediate_percentage NUMERIC(5, 2);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS diploma_percentage NUMERIC(5, 2);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS intermediate_year_of_passing VARCHAR(10);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS tenth_percentage NUMERIC(5, 2);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS tenth_year_of_passing VARCHAR(10);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS aadhar_number VARCHAR(12);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS pan_number VARCHAR(10);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS passport_number VARCHAR(9);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS crt_registration VARCHAR(20);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS intermediate_or_diploma VARCHAR(30);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS intermediate_cgpa NUMERIC(4, 2);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS diploma_cgpa NUMERIC(4, 2);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS btech_year_of_passing VARCHAR(10);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS tenth_cgpa NUMERIC(4, 2);
+        -- Support legacy migrations dynamically
+        ALTER TABLE students ADD COLUMN IF NOT EXISTS first_name VARCHAR(100);
+        ALTER TABLE students ADD COLUMN IF NOT EXISTS last_name VARCHAR(100);
 
         CREATE INDEX IF NOT EXISTS idx_students_roll_number ON students(roll_number);
         CREATE INDEX IF NOT EXISTS idx_students_email ON students(email);
@@ -343,14 +341,15 @@ class PostgresDatabase {
     await this.ready;
     const res = await this.pool.query(
       `INSERT INTO students (
-        full_name, roll_number, date_of_birth, gender, email, email_verified,
+        first_name, last_name, roll_number, date_of_birth, gender, email, email_verified,
         mobile_number, aadhar_number, pan_number, passport_number, college, branch, other_branch,
         cgpa, percentage, active_backlogs,
         intermediate_or_diploma, intermediate_cgpa, intermediate_percentage, diploma_cgpa, diploma_percentage, intermediate_year_of_passing, btech_year_of_passing, tenth_cgpa, tenth_percentage, tenth_year_of_passing, crt_registration
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
       RETURNING *`,
       [
-        data.fullName.trim(),
+        data.firstName.trim(),
+        data.lastName.trim(),
         data.rollNumber.trim().toUpperCase(),
         data.dateOfBirth,
         data.gender,
@@ -403,7 +402,7 @@ class PostgresDatabase {
 
     if (filter?.search) {
       params.push(`%${filter.search.trim()}%`);
-      conditions.push(`(full_name ILIKE $${params.length} OR roll_number ILIKE $${params.length} OR email ILIKE $${params.length} OR mobile_number ILIKE $${params.length})`);
+      conditions.push(`(first_name ILIKE $${params.length} OR last_name ILIKE $${params.length} OR roll_number ILIKE $${params.length} OR email ILIKE $${params.length} OR mobile_number ILIKE $${params.length})`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -413,9 +412,14 @@ class PostgresDatabase {
     return res.rows;
   }
 
+  async deleteStudent(id: string): Promise<boolean> {
+    await this.ready;
+    const res = await this.pool.query('DELETE FROM students WHERE id = $1 RETURNING id', [id]);
+    return (res.rowCount ?? 0) > 0;
+  }
+
   async saveOtp(email: string, otpHash: string, expiresAt: Date): Promise<OtpRecord> {
     const normalized = email.trim().toLowerCase();
-    // Invalidate previous unverified OTPs
     await this.ready;
     await this.pool.query(
       'UPDATE email_otp_verifications SET expires_at = NOW() WHERE email = $1 AND verified_at IS NULL',
