@@ -21,7 +21,8 @@ export type Branch =
 
 export interface StudentFormData {
   // Personal Details
-  fullName: string;
+  firstName: string;
+  lastName: string;
   rollNumber: string;
   dateOfBirth: string;
   gender: Gender | '';
@@ -57,7 +58,8 @@ export interface StudentFormData {
 
 export interface StudentRecord {
   id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   roll_number: string;
   date_of_birth: string;
   gender: string;
@@ -107,7 +109,7 @@ export interface SubmitResponse {
   message: string;
   submissionId?: string;
   student?: {
-    name: string;
+    name: string; // Kept as combined name for the success screen display
     rollNumber: string;
     email: string;
     submissionId: string;
