@@ -2,7 +2,8 @@ import React from 'react';
 import { Gender } from '../types/student';
 
 interface PersonalDetailsProps {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   rollNumber: string;
   dateOfBirth: string;
   gender: Gender | '';
@@ -14,7 +15,8 @@ interface PersonalDetailsProps {
 }
 
 export const PersonalDetailsSection: React.FC<PersonalDetailsProps> = ({
-  fullName,
+  firstName,
+  lastName,
   rollNumber,
   dateOfBirth,
   gender,
@@ -43,29 +45,51 @@ export const PersonalDetailsSection: React.FC<PersonalDetailsProps> = ({
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Field 1: Full Name */}
-        <div>
-          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1.5">
-            Full Name <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="fullName"
-            type="text"
-            value={fullName}
-            onChange={(e) => onChange('fullName', e.target.value)}
-            placeholder="e.g. RAHUL SHARMA"
-            maxLength={100}
-            className={`w-full px-3.5 py-2.5 rounded-md border text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none transition-colors ${
-              errors.fullName
-                ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-400'
-                : 'border-gray-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600'
-            }`}
-          />
-          {errors.fullName ? (
-            <p className="mt-1 text-xs text-red-600">{errors.fullName}</p>
-          ) : (
-            <p className="mt-1 text-xs text-gray-400">Enter your full official name as per college records.</p>
-          )}
+        {/* Name Fields (First and Last Split) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1.5">
+              First Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              value={firstName}
+              onChange={(e) => onChange('firstName', e.target.value)}
+              placeholder="e.g. RAHUL"
+              maxLength={50}
+              className={`w-full px-3.5 py-2.5 rounded-md border text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none transition-colors ${
+                errors.firstName
+                  ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-400'
+                  : 'border-gray-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600'
+              }`}
+            />
+            {errors.firstName && (
+              <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>
+            )}
+          </div>
+          
+          <div>
+            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1.5">
+              Last Name / Surname <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              value={lastName}
+              onChange={(e) => onChange('lastName', e.target.value)}
+              placeholder="e.g. SHARMA"
+              maxLength={50}
+              className={`w-full px-3.5 py-2.5 rounded-md border text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none transition-colors ${
+                errors.lastName
+                  ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-400'
+                  : 'border-gray-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600'
+              }`}
+            />
+            {errors.lastName && (
+              <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>
+            )}
+          </div>
         </div>
 
         {/* Field 2: Roll Number / Hall Ticket Number */}
