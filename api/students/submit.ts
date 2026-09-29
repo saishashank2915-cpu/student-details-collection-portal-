@@ -15,7 +15,8 @@ export default async function handler(req: any, res: any) {
 
   try {
     const {
-      fullName,
+      firstName,
+      lastName,
       rollNumber,
       dateOfBirth,
       gender,
@@ -46,21 +47,29 @@ export default async function handler(req: any, res: any) {
 
     const errors: Record<string, string> = {};
 
-    // 1. Verify Full Name
-    const trimmedName = typeof fullName === 'string' ? fullName.trim() : '';
-    if (!trimmedName) {
-      errors.fullName = 'Full name is required.';
-    } else if (trimmedName.length < 2 || trimmedName.length > 100) {
-      errors.fullName = 'Full name must be between 2 and 100 characters.';
+    // 1. Verify First Name
+    const trimmedFirstName = typeof firstName === 'string' ? firstName.trim() : '';
+    if (!trimmedFirstName) {
+      errors.firstName = 'First name is required.';
+    } else if (trimmedFirstName.length < 2 || trimmedFirstName.length > 50) {
+      errors.firstName = 'First name must be between 2 and 50 characters.';
     }
 
-    // 2. Verify Roll Number
+    // 2. Verify Last Name
+    const trimmedLastName = typeof lastName === 'string' ? lastName.trim() : '';
+    if (!trimmedLastName) {
+      errors.lastName = 'Last name is required.';
+    } else if (trimmedLastName.length > 50) {
+      errors.lastName = 'Last name cannot exceed 50 characters.';
+    }
+
+    // 3. Verify Roll Number
     const rollError = validateRollNumber(rollNumber || '');
     if (rollError) {
       errors.rollNumber = rollError;
     }
 
-    // 3. Verify Date of Birth
+    // 4. Verify Date of Birth
     if (!dateOfBirth) {
       errors.dateOfBirth = 'Date of birth is required.';
     } else {
@@ -72,12 +81,12 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 4. Verify Gender
+    // 5. Verify Gender
     if (!gender || !['Male', 'Female', 'Other'].includes(gender)) {
       errors.gender = 'Please select a valid gender option.';
     }
 
-    // 5. Verify Email & Verification Token
+    // 6. Verify Email & Verification Token
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     const emailError = validateEmail(cleanEmail);
     if (emailError) {
@@ -93,13 +102,13 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 6. Verify Mobile Number
+    // 7. Verify Mobile Number
     const mobileError = validateMobileNumber(mobileNumber || '');
     if (mobileError) {
       errors.mobileNumber = mobileError;
     }
 
-    // 7. Verify identity documents
+    // 8. Verify identity documents
     const cleanAadhar = typeof aadharNumber === 'string' ? aadharNumber.replace(/\s/g, '') : '';
     if (!/^\d{12}$/.test(cleanAadhar)) {
       errors.aadharNumber = 'Aadhaar number must be exactly 12 digits.';
@@ -113,7 +122,7 @@ export default async function handler(req: any, res: any) {
       errors.passportNumber = 'Please enter a valid Passport number.';
     }
 
-    // 8. Verify College
+    // 9. Verify College
     const trimmedCollege = typeof college === 'string' ? college.trim() : '';
     if (!trimmedCollege) {
       errors.college = 'College / Institution is required.';
@@ -121,14 +130,14 @@ export default async function handler(req: any, res: any) {
       errors.college = 'College name cannot exceed 200 characters.';
     }
 
-    // 9. Verify Branch
+    // 10. Verify Branch 
     const validBranches = [
       'Computer Science & Engineering (CSE)',
-      'CSE – Artificial Intelligence & Machine Learning (AI & ML)',
-      'CSE – Data Science (DS)',
-      'CSE – Cyber Security (CS)',
-      'Artificial Intelligence & Data Science (AI & DS)',
-      'Electronics & Communication Engineering (ECE)',
+      'CSE - AI & Machine Learning',
+      'CSE - Data Science',
+      'CSE - Cyber Security',
+      'AI & Data Science',
+      'Electronics & Communication Eng (ECE)',
       'Civil Engineering (CE)',
       'Mechanical Engineering (ME)',
       'Other',
@@ -140,7 +149,7 @@ export default async function handler(req: any, res: any) {
       errors.otherBranch = 'Please specify your branch/department.';
     }
 
-    // 10. Verify CGPA & Percentage
+    // 11. Verify CGPA & Percentage
     const numCgpa = parseFloat(cgpa);
     const numPct = parseFloat(percentage);
 
@@ -158,7 +167,7 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 11. Verify Active Backlogs
+    // 12. Verify Active Backlogs
     const numBacklogs = Number(activeBacklogs);
     if (activeBacklogs === undefined || activeBacklogs === null || isNaN(numBacklogs)) {
       errors.activeBacklogs = 'Active backlogs is required.';
@@ -166,12 +175,11 @@ export default async function handler(req: any, res: any) {
       errors.activeBacklogs = 'Active backlogs cannot be negative.';
     }
 
-    // 12. Verify Intermediate / Diploma
+    // 13. Verify Intermediate / Diploma
     if (!intermediateOrDiploma || !['Intermediate', 'Diploma'].includes(intermediateOrDiploma)) {
       errors.intermediateOrDiploma = 'Please select either Intermediate or Diploma.';
     }
 
-    // 13. Verify Intermediate / Diploma CGPA, percentage and year of passing
     if (intermediateOrDiploma === 'Intermediate') {
       const intNum = parseFloat(intermediateCgpa);
       const intPct = parseFloat(intermediatePercentage);
@@ -214,7 +222,7 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // 12. Check duplicate roll number
+    // 16. Check duplicate roll number
     const normalizedRoll = String(rollNumber || '').trim().toUpperCase();
     const existingStudent = await db.findStudentByRollNumber(normalizedRoll);
     if (existingStudent) {
@@ -227,23 +235,23 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // 13. Insert Student into Database
+    // 17. Insert Student into Database
     try {
       const student = await db.insertStudent({
-        fullName: trimmedName,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
         rollNumber: normalizedRoll,
         dateOfBirth,
         gender,
         email: cleanEmail,
         emailVerified: true,
-        // SAFE CONVERSIONS: Wrapped variables in String() to prevent .trim() crashes from Android inputs
         mobileNumber: String(mobileNumber || '').trim(),
         aadharNumber: cleanAadhar,
         panNumber: cleanPan || null,
         passportNumber: cleanPassport || null,
         college: trimmedCollege,
-        branch,
-        otherBranch: branch === 'Other' && otherBranch ? String(otherBranch).trim() : null,
+        branch: String(branch).substring(0, 48),
+        otherBranch: branch === 'Other' && otherBranch ? String(otherBranch).trim().substring(0, 48) : null,
         cgpa: numCgpa,
         percentage: numPct,
         activeBacklogs: numBacklogs,
@@ -260,7 +268,7 @@ export default async function handler(req: any, res: any) {
         crtRegistration: crtRegistration ? String(crtRegistration).trim() : null,
       });
 
-      // 14. Invalidate single-use token
+      // 18. Invalidate single-use token
       await consumeVerificationToken(cleanEmail, verificationToken);
 
       return res.status(201).json({
@@ -268,14 +276,13 @@ export default async function handler(req: any, res: any) {
         message: 'Your student details have been submitted successfully.',
         submissionId: student.id,
         student: {
-          name: student.full_name,
+          name: `${student.first_name} ${student.last_name}`,
           rollNumber: student.roll_number,
           email: student.email,
           submissionId: student.id,
         },
       });
     } catch (dbError: any) {
-      // EXPOSE DATABASE ERRORS: This forces the actual issue to print to Vercel logs AND your frontend
       console.error('[DB INSERT ERROR]:', dbError);
       
       if (dbError.code === '23505') {
