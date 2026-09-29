@@ -133,16 +133,17 @@ export default async function handler(req: any, res: any) {
     // 10. Verify Branch 
     const validBranches = [
       'Computer Science & Engineering (CSE)',
-      'CSE - AI & Machine Learning',
-      'CSE - Data Science',
-      'CSE - Cyber Security',
-      'AI & Data Science',
-      'Electronics & Communication Eng (ECE)',
+      'CSE – Artificial Intelligence & Machine Learning (AI & ML)',
+      'CSE – Data Science (DS)',
+      'CSE – Cyber Security (CS)',
+      'Artificial Intelligence & Data Science (AI & DS)',
+      'Electronics & Communication Engineering (ECE)',
       'Civil Engineering (CE)',
       'Mechanical Engineering (ME)',
       'Other',
       'CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'AI & ML', 'AI & DS', 'CE', 'ME'
     ];
+    
     if (!branch || !validBranches.includes(branch)) {
       errors.branch = 'Please select your branch.';
     } else if (branch === 'Other' && (!otherBranch || !String(otherBranch).trim())) {
