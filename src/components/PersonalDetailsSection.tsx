@@ -55,7 +55,8 @@ export const PersonalDetailsSection: React.FC<PersonalDetailsProps> = ({
               id="firstName"
               type="text"
               value={firstName}
-              onChange={(e) => onChange('firstName', e.target.value)}
+              // Automatically converts text to uppercase
+              onChange={(e) => onChange('firstName', e.target.value.toUpperCase())}
               placeholder="e.g. RAHUL"
               maxLength={50}
               className={`w-full px-3.5 py-2.5 rounded-md border text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none transition-colors ${
@@ -77,7 +78,8 @@ export const PersonalDetailsSection: React.FC<PersonalDetailsProps> = ({
               id="lastName"
               type="text"
               value={lastName}
-              onChange={(e) => onChange('lastName', e.target.value)}
+              // Automatically converts text to uppercase
+              onChange={(e) => onChange('lastName', e.target.value.toUpperCase())}
               placeholder="e.g. SHARMA"
               maxLength={50}
               className={`w-full px-3.5 py-2.5 rounded-md border text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none transition-colors ${
