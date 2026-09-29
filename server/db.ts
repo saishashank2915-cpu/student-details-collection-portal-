@@ -176,72 +176,55 @@ class MemoryDatabase {
     return false;
   }
 
+  async updateStudent(id: string, updates: Partial<StudentDbRow>): Promise<StudentDbRow | null> {
+    const student = this.students.get(id);
+    if (student) {
+      const updated = { ...student, ...updates, updated_at: new Date().toISOString() };
+      this.students.set(id, updated);
+      return updated;
+    }
+    return null;
+  }
+
   async saveOtp(email: string, otpHash: string, expiresAt: Date): Promise<OtpRecord> {
     const normalized = email.trim().toLowerCase();
     this.otpRecords = this.otpRecords.filter(r => !(r.email === normalized && !r.verifiedAt));
-
-    const record: OtpRecord = {
-      id: randomUUID(),
-      email: normalized,
-      otpHash,
-      expiresAt,
-      attemptCount: 0,
-      createdAt: new Date(),
-    };
+    const record: OtpRecord = { id: randomUUID(), email: normalized, otpHash, expiresAt, attemptCount: 0, createdAt: new Date() };
     this.otpRecords.push(record);
     return record;
   }
 
   async getLatestActiveOtp(email: string): Promise<OtpRecord | null> {
     const normalized = email.trim().toLowerCase();
-    const records = this.otpRecords
-      .filter(r => r.email === normalized && !r.verifiedAt)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const records = this.otpRecords.filter(r => r.email === normalized && !r.verifiedAt).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     return records[0] || null;
   }
 
   async getLastOtpSentTime(email: string): Promise<Date | null> {
     const normalized = email.trim().toLowerCase();
-    const records = this.otpRecords
-      .filter(r => r.email === normalized)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const records = this.otpRecords.filter(r => r.email === normalized).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     return records[0] ? records[0].createdAt : null;
   }
 
   async updateOtpAttempts(id: string, attemptCount: number): Promise<void> {
     const record = this.otpRecords.find(r => r.id === id);
-    if (record) {
-      record.attemptCount = attemptCount;
-    }
+    if (record) record.attemptCount = attemptCount;
   }
 
   async markOtpVerified(id: string, token: string, tokenExpiresAt: Date): Promise<void> {
     const record = this.otpRecords.find(r => r.id === id);
-    if (record) {
-      record.verifiedAt = new Date();
-      record.verificationToken = token;
-      record.tokenExpiresAt = tokenExpiresAt;
-    }
+    if (record) { record.verifiedAt = new Date(); record.verificationToken = token; record.tokenExpiresAt = tokenExpiresAt; }
   }
 
   async findValidVerificationToken(email: string, token: string): Promise<OtpRecord | null> {
     const normalized = email.trim().toLowerCase();
     const now = new Date();
-    return this.otpRecords.find(
-      r =>
-        r.email === normalized &&
-        r.verificationToken === token &&
-        r.tokenExpiresAt &&
-        r.tokenExpiresAt > now
-    ) || null;
+    return this.otpRecords.find(r => r.email === normalized && r.verificationToken === token && r.tokenExpiresAt && r.tokenExpiresAt > now) || null;
   }
 
   async consumeVerificationToken(id: string): Promise<void> {
     const record = this.otpRecords.find(r => r.id === id);
-    if (record) {
-      record.verificationToken = null;
-      record.tokenExpiresAt = null;
-    }
+    if (record) { record.verificationToken = null; record.tokenExpiresAt = null; }
   }
 }
 
@@ -253,9 +236,7 @@ class PostgresDatabase {
   constructor(connectionString: string) {
     this.pool = new Pool({
       connectionString,
-      ssl: connectionString.includes('supabase') || connectionString.includes('sslmode=require')
-        ? { rejectUnauthorized: false }
-        : undefined,
+      ssl: connectionString.includes('supabase') || connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
       max: 10,
       idleTimeoutMillis: 30000,
     });
@@ -299,14 +280,8 @@ class PostgresDatabase {
           created_at TIMESTAMPTZ DEFAULT NOW(),
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );
-
-        -- Support legacy migrations dynamically
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS first_name VARCHAR(100);
-        ALTER TABLE students ADD COLUMN IF NOT EXISTS last_name VARCHAR(100);
-
         CREATE INDEX IF NOT EXISTS idx_students_roll_number ON students(roll_number);
         CREATE INDEX IF NOT EXISTS idx_students_email ON students(email);
-
         CREATE TABLE IF NOT EXISTS email_otp_verifications (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           email VARCHAR(255) NOT NULL,
@@ -318,11 +293,7 @@ class PostgresDatabase {
           verified_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ DEFAULT NOW()
         );
-
-        CREATE INDEX IF NOT EXISTS idx_email_otp_email ON email_otp_verifications(email);
-        CREATE INDEX IF NOT EXISTS idx_email_otp_token ON email_otp_verifications(verification_token);
       `);
-      console.log('[DB] PostgreSQL schema initialized successfully.');
     } finally {
       client.release();
     }
@@ -330,10 +301,7 @@ class PostgresDatabase {
 
   async findStudentByRollNumber(rollNumber: string): Promise<StudentDbRow | null> {
     await this.ready;
-    const res = await this.pool.query(
-      'SELECT * FROM students WHERE UPPER(roll_number) = UPPER($1) LIMIT 1',
-      [rollNumber.trim()]
-    );
+    const res = await this.pool.query('SELECT * FROM students WHERE UPPER(roll_number) = UPPER($1) LIMIT 1', [rollNumber.trim()]);
     return res.rows[0] || null;
   }
 
@@ -345,37 +313,11 @@ class PostgresDatabase {
         mobile_number, aadhar_number, pan_number, passport_number, college, branch, other_branch,
         cgpa, percentage, active_backlogs,
         intermediate_or_diploma, intermediate_cgpa, intermediate_percentage, diploma_cgpa, diploma_percentage, intermediate_year_of_passing, btech_year_of_passing, tenth_cgpa, tenth_percentage, tenth_year_of_passing, crt_registration
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
-      RETURNING *`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28) RETURNING *`,
       [
-        data.firstName.trim(),
-        data.lastName.trim(),
-        data.rollNumber.trim().toUpperCase(),
-        data.dateOfBirth,
-        data.gender,
-        data.email.trim().toLowerCase(),
-        data.emailVerified,
-        data.mobileNumber.trim(),
-        data.aadharNumber,
-        data.panNumber || null,
-        data.passportNumber || null,
-        data.college.trim(),
-        data.branch,
-        data.otherBranch ? data.otherBranch.trim() : null,
-        data.cgpa,
-        data.percentage,
-        data.activeBacklogs,
-        data.intermediateOrDiploma || null,
-        data.intermediateCgpa ?? null,
-        data.intermediatePercentage ?? null,
-        data.diplomaCgpa ?? null,
-        data.diplomaPercentage ?? null,
-        data.intermediateYearOfPassing || null,
-        data.btechYearOfPassing || null,
-        data.tenthCgpa ?? null,
-        data.tenthPercentage ?? null,
-        data.tenthYearOfPassing || null,
-        data.crtRegistration || null,
+        data.firstName.trim(), data.lastName.trim(), data.rollNumber.trim().toUpperCase(), data.dateOfBirth, data.gender, data.email.trim().toLowerCase(), data.emailVerified,
+        data.mobileNumber.trim(), data.aadharNumber, data.panNumber || null, data.passportNumber || null, data.college.trim(), data.branch, data.otherBranch ? data.otherBranch.trim() : null,
+        data.cgpa, data.percentage, data.activeBacklogs, data.intermediateOrDiploma || null, data.intermediateCgpa ?? null, data.intermediatePercentage ?? null, data.diplomaCgpa ?? null, data.diplomaPercentage ?? null, data.intermediateYearOfPassing || null, data.btechYearOfPassing || null, data.tenthCgpa ?? null, data.tenthPercentage ?? null, data.tenthYearOfPassing || null, data.crtRegistration || null,
       ]
     );
     return res.rows[0];
@@ -384,27 +326,18 @@ class PostgresDatabase {
   async listStudents(filter?: { branch?: string | string[]; yop?: string; search?: string }): Promise<StudentDbRow[]> {
     const conditions: string[] = [];
     const params: any[] = [];
-
     if (filter?.branch && filter.branch !== 'ALL') {
-      if (Array.isArray(filter.branch)) {
-        params.push(filter.branch);
-        conditions.push(`branch = ANY($${params.length})`);
-      } else {
-        params.push(filter.branch);
-        conditions.push(`branch = $${params.length}`);
-      }
+      params.push(filter.branch);
+      conditions.push(Array.isArray(filter.branch) ? `branch = ANY($${params.length})` : `branch = $${params.length}`);
     }
-
     if (filter?.yop && filter.yop !== 'ALL') {
       params.push(filter.yop);
       conditions.push(`btech_year_of_passing = $${params.length}`);
     }
-
     if (filter?.search) {
       params.push(`%${filter.search.trim()}%`);
       conditions.push(`(first_name ILIKE $${params.length} OR last_name ILIKE $${params.length} OR roll_number ILIKE $${params.length} OR email ILIKE $${params.length} OR mobile_number ILIKE $${params.length})`);
     }
-
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const query = `SELECT * FROM students ${whereClause} ORDER BY roll_number ASC, created_at DESC`;
     await this.ready;
@@ -418,98 +351,74 @@ class PostgresDatabase {
     return (res.rowCount ?? 0) > 0;
   }
 
+  async updateStudent(id: string, updates: Partial<StudentDbRow>): Promise<StudentDbRow | null> {
+    await this.ready;
+    const allowedKeys = ['first_name', 'last_name', 'roll_number', 'branch', 'cgpa', 'percentage', 'active_backlogs', 'email', 'mobile_number', 'btech_year_of_passing'];
+    const setClauses: string[] = [];
+    const values: any[] = [];
+    let i = 1;
+
+    for (const key of allowedKeys) {
+      if (updates[key as keyof StudentDbRow] !== undefined) {
+        setClauses.push(`${key} = $${i}`);
+        values.push(updates[key as keyof StudentDbRow]);
+        i++;
+      }
+    }
+
+    if (setClauses.length === 0) return null;
+    values.push(id);
+    const query = `UPDATE students SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${i} RETURNING *`;
+    const res = await this.pool.query(query, values);
+    return res.rows[0] || null;
+  }
+
   async saveOtp(email: string, otpHash: string, expiresAt: Date): Promise<OtpRecord> {
     const normalized = email.trim().toLowerCase();
     await this.ready;
-    await this.pool.query(
-      'UPDATE email_otp_verifications SET expires_at = NOW() WHERE email = $1 AND verified_at IS NULL',
-      [normalized]
-    );
-
-    await this.ready;
+    await this.pool.query('UPDATE email_otp_verifications SET expires_at = NOW() WHERE email = $1 AND verified_at IS NULL', [normalized]);
     const res = await this.pool.query(
-      `INSERT INTO email_otp_verifications (email, otp_hash, expires_at)
-       VALUES ($1, $2, $3)
-       RETURNING id, email, otp_hash AS "otpHash", expires_at AS "expiresAt", attempt_count AS "attemptCount", created_at AS "createdAt"`,
+      `INSERT INTO email_otp_verifications (email, otp_hash, expires_at) VALUES ($1, $2, $3) RETURNING id, email, otp_hash AS "otpHash", expires_at AS "expiresAt", attempt_count AS "attemptCount", created_at AS "createdAt"`,
       [normalized, otpHash, expiresAt]
     );
     return res.rows[0];
   }
 
   async getLatestActiveOtp(email: string): Promise<OtpRecord | null> {
-    const normalized = email.trim().toLowerCase();
     await this.ready;
-    const res = await this.pool.query(
-      `SELECT id, email, otp_hash AS "otpHash", expires_at AS "expiresAt",
-              attempt_count AS "attemptCount", created_at AS "createdAt",
-              verified_at AS "verifiedAt"
-       FROM email_otp_verifications
-       WHERE email = $1 AND verified_at IS NULL
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [normalized]
-    );
+    const res = await this.pool.query(`SELECT id, email, otp_hash AS "otpHash", expires_at AS "expiresAt", attempt_count AS "attemptCount", created_at AS "createdAt", verified_at AS "verifiedAt" FROM email_otp_verifications WHERE email = $1 AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1`, [email.trim().toLowerCase()]);
     return res.rows[0] || null;
   }
 
   async getLastOtpSentTime(email: string): Promise<Date | null> {
-    const normalized = email.trim().toLowerCase();
     await this.ready;
-    const res = await this.pool.query(
-      `SELECT created_at AS "createdAt"
-       FROM email_otp_verifications
-       WHERE email = $1
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [normalized]
-    );
+    const res = await this.pool.query(`SELECT created_at AS "createdAt" FROM email_otp_verifications WHERE email = $1 ORDER BY created_at DESC LIMIT 1`, [email.trim().toLowerCase()]);
     return res.rows[0] ? new Date(res.rows[0].createdAt) : null;
   }
 
   async updateOtpAttempts(id: string, attemptCount: number): Promise<void> {
     await this.ready;
-    await this.pool.query(
-      'UPDATE email_otp_verifications SET attempt_count = $1 WHERE id = $2',
-      [attemptCount, id]
-    );
+    await this.pool.query('UPDATE email_otp_verifications SET attempt_count = $1 WHERE id = $2', [attemptCount, id]);
   }
 
   async markOtpVerified(id: string, token: string, tokenExpiresAt: Date): Promise<void> {
     await this.ready;
-    await this.pool.query(
-      `UPDATE email_otp_verifications
-       SET verified_at = NOW(), verification_token = $1, token_expires_at = $2
-       WHERE id = $3`,
-      [token, tokenExpiresAt, id]
-    );
+    await this.pool.query(`UPDATE email_otp_verifications SET verified_at = NOW(), verification_token = $1, token_expires_at = $2 WHERE id = $3`, [token, tokenExpiresAt, id]);
   }
 
   async findValidVerificationToken(email: string, token: string): Promise<OtpRecord | null> {
-    const normalized = email.trim().toLowerCase();
     await this.ready;
-    const res = await this.pool.query(
-      `SELECT id, email, otp_hash AS "otpHash", verification_token AS "verificationToken",
-              token_expires_at AS "tokenExpiresAt", verified_at AS "verifiedAt"
-       FROM email_otp_verifications
-       WHERE email = $1 AND verification_token = $2 AND token_expires_at > NOW()
-       LIMIT 1`,
-      [normalized, token]
-    );
+    const res = await this.pool.query(`SELECT id, email, otp_hash AS "otpHash", verification_token AS "verificationToken", token_expires_at AS "tokenExpiresAt", verified_at AS "verifiedAt" FROM email_otp_verifications WHERE email = $1 AND verification_token = $2 AND token_expires_at > NOW() LIMIT 1`, [email.trim().toLowerCase(), token]);
     return res.rows[0] || null;
   }
 
   async consumeVerificationToken(id: string): Promise<void> {
     await this.ready;
-    await this.pool.query(
-      'UPDATE email_otp_verifications SET verification_token = NULL, token_expires_at = NULL WHERE id = $1',
-      [id]
-    );
+    await this.pool.query('UPDATE email_otp_verifications SET verification_token = NULL, token_expires_at = NULL WHERE id = $1', [id]);
   }
 }
 
-// Instantiate Database Client
 const databaseUrl = process.env.DATABASE_URL?.trim();
-
 let dbInstance: PostgresDatabase | MemoryDatabase;
 let isUsingPostgres = false;
 
@@ -517,18 +426,12 @@ if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsW
   try {
     const pgDb = new PostgresDatabase(databaseUrl);
     pgDb.ready = pgDb.initSchema();
-    pgDb.ready.catch(err => {
-      console.error('[DB] PostgreSQL initialization failed:', err.code || 'database_error');
-    });
     dbInstance = pgDb;
     isUsingPostgres = true;
-    console.log('[DB] PostgreSQL configured; awaiting schema initialization.');
   } catch (err: any) {
-    console.warn('[DB] Could not initialize PostgreSQL client, using memory database:', err.message);
     dbInstance = new MemoryDatabase();
   }
 } else {
-  console.log('[DB] DATABASE_URL not set or empty. Using in-memory state store. (Configure DATABASE_URL for Supabase PostgreSQL)');
   dbInstance = new MemoryDatabase();
 }
 
