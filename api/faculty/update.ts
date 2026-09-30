@@ -21,14 +21,16 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ success: false, message: 'Invalid or expired session. Please log in again.' });
   }
 
-  // 2. Extract Data
-  const { id, updates } = req.body;
-  if (!id || !updates) {
-    return res.status(400).json({ success: false, message: 'Student ID and updates are required.' });
-  }
-
-  // 3. Update Database
   try {
+    // FIX: Safely parse the body in case Vercel receives it as a raw string
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const { id, updates } = body;
+
+    if (!id || !updates) {
+      return res.status(400).json({ success: false, message: 'Student ID and updates are required.' });
+    }
+
+    // 3. Update Database
     const updatedStudent = await db.updateStudent(id, updates);
     if (updatedStudent) {
       return res.status(200).json({ success: true, message: 'Student updated successfully.', student: updatedStudent });
