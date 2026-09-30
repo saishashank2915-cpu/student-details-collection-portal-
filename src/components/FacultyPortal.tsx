@@ -230,11 +230,11 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
         (s) =>
-          s.first_name.toLowerCase().includes(q) ||
-          s.last_name.toLowerCase().includes(q) ||
-          s.roll_number.toLowerCase().includes(q) ||
-          s.email.toLowerCase().includes(q) ||
-          s.mobile_number.includes(q)
+          (s.first_name && s.first_name.toLowerCase().includes(q)) ||
+          (s.last_name && s.last_name.toLowerCase().includes(q)) ||
+          (s.roll_number && s.roll_number.toLowerCase().includes(q)) ||
+          (s.email && s.email.toLowerCase().includes(q)) ||
+          (s.mobile_number && s.mobile_number.includes(q))
       );
     }
     return result;
@@ -295,8 +295,9 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     const exportData = filteredStudents.map((s, idx) => ({
       'S.No': idx + 1,
       'Roll Number / Hall Ticket': s.roll_number,
-      'First Name': s.first_name,
-      'Last Name': s.last_name,
+      'Full Name': `${s.first_name || ''} ${s.last_name || ''}`.trim() || '-',
+      'First Name': s.first_name || '-',
+      'Last Name': s.last_name || '-',
       'Department / Branch': s.branch === 'Other' && s.other_branch ? `${s.branch} (${s.other_branch})` : s.branch,
       'Academic Session': '2026–2027',
       'College / Institution': s.college,
@@ -316,8 +317,9 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
+    // Added widths for Full Name, First Name, and Last Name
     worksheet['!cols'] = [
-      { wch: 6 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 18 }, { wch: 25 },
+      { wch: 6 }, { wch: 18 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 18 },
       { wch: 35 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
       { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 22 }, { wch: 36 },
     ];
