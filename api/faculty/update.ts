@@ -1,28 +1,26 @@
 import { db } from '../../server/db.js';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-for-development';
+import { verifyFacultyToken } from '../../server/faculty.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'PUT' && req.method !== 'PATCH') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  // 1. Verify Faculty Login Token
+  // 1. Verify Faculty Login Token using your custom function
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, message: 'Unauthorized' });
   }
 
   const token = authHeader.split(' ')[1];
-  try {
-    jwt.verify(token, JWT_SECRET);
-  } catch (err) {
+  const decoded = verifyFacultyToken(token);
+  
+  if (!decoded) {
     return res.status(401).json({ success: false, message: 'Invalid or expired session. Please log in again.' });
   }
 
   try {
-    // FIX: Safely parse the body in case Vercel receives it as a raw string
+    // 2. Safely parse the body in case Vercel receives it as a raw string
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { id, updates } = body;
 
