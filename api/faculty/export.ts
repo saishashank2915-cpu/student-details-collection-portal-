@@ -1,49 +1,73 @@
 import { db } from '../../server/db.js';
-import { getDepartmentAliases, verifyFacultyToken, generateStudentsExcelBuffer } from '../../server/faculty.js';
+import * as XLSX from 'xlsx';
+import jwt from 'jsonwebtoken';
 
-function extractSession(req: any): { dept: string } | null {
-  const authHeader = req.headers.authorization;
-  let token = '';
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
-  } else if (req.query?.token) {
-    token = req.query.token;
-  }
-  if (!token) return null;
-  return verifyFacultyToken(token);
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-for-development';
 
 export default async function handler(req: any, res: any) {
-  const session = extractSession(req);
-  if (!session) {
-    return res.status(401).json({ success: false, message: 'Unauthorized. Please log in to download reports.' });
+  if (req.method !== 'GET') {
+    return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const { branch, search } = req.query || {};
-  let targetBranches: string[] | undefined;
-  const effectiveDeptCode = session.dept === 'ALL'
-    ? (typeof branch === 'string' && branch && branch !== 'ALL' ? branch : 'ALL')
-    : session.dept;
-
-  if (effectiveDeptCode !== 'ALL') {
-    targetBranches = getDepartmentAliases(effectiveDeptCode);
+  const token = req.query.token;
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
   }
 
   try {
-    const students = await db.listStudents({
-      branch: targetBranches,
-      search: typeof search === 'string' && search ? search : undefined,
-    });
+    jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid token' });
+  }
 
-    const excelBuffer = generateStudentsExcelBuffer(students, effectiveDeptCode);
-    const safeDept = effectiveDeptCode.replace(/[^a-zA-Z0-9]/g, '_');
-    const filename = `AVN_Students_${safeDept}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  try {
+    const branch = req.query.branch as string;
+    const yop = req.query.yop as string;
+    const search = req.query.search as string;
 
+    const filter: any = {};
+    if (branch && branch !== 'ALL') filter.branch = branch;
+    if (yop && yop !== 'ALL') filter.yop = yop;
+    if (search) filter.search = search;
+
+    const students = await db.listStudents(filter);
+
+    // FIX: Stitch First and Last name together for the Excel export
+    const exportData = students.map((s: any, idx: number) => ({
+      'S.No': idx + 1,
+      'Roll Number / Hall Ticket': s.roll_number,
+      'Full Name': `${s.first_name || ''} ${s.last_name || ''}`.trim() || '-',
+      'First Name': s.first_name || '-',
+      'Last Name': s.last_name || '-',
+      'Department / Branch': s.branch === 'Other' && s.other_branch ? `${s.branch} (${s.other_branch})` : s.branch,
+      'Academic Session': '2026–2027',
+      'College / Institution': s.college,
+      'Email Address': s.email,
+      'Mobile Number': `+91 ${s.mobile_number}`,
+      'Aadhaar Number': s.aadhar_number || '-',
+      'PAN Number': s.pan_number || '-',
+      'Passport Number': s.passport_number || '-',
+      'Date of Birth': s.date_of_birth,
+      'Gender': s.gender,
+      'CGPA (0-10)': Number(s.cgpa || 0),
+      'Percentage (%)': `${Number(s.percentage || 0)}%`,
+      'Active Backlogs': Number(s.active_backlogs || 0),
+      'CRT Registration': s.crt_registration || '-',
+      'Submission Date': s.created_at ? new Date(s.created_at).toLocaleString() : '',
+      'Submission ID': s.id,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Students');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename="Students_Export.xlsx"');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return res.send(excelBuffer);
-  } catch (error: any) {
-    console.error('Error in Vercel /api/faculty/export:', error);
-    return res.status(500).json({ success: false, message: 'Failed to export Excel spreadsheet.' });
+    return res.send(buffer);
+  } catch (error) {
+    console.error('Export error:', error);
+    return res.status(500).json({ success: false, message: 'Export failed' });
   }
 }
