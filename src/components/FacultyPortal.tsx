@@ -173,9 +173,11 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
       pan_number: student.pan_number,
       passport_number: student.passport_number,
       tenth_cgpa: student.tenth_cgpa,
+      tenth_yop: student.tenth_yop, // Included 10th YOP
       intermediate_or_diploma: student.intermediate_or_diploma,
       intermediate_cgpa: student.intermediate_cgpa,
       diploma_cgpa: student.diploma_cgpa,
+      inter_yop: student.inter_yop, // Included Inter YOP
       cgpa: student.cgpa,
       percentage: student.percentage,
       active_backlogs: student.active_backlogs,
@@ -846,22 +848,28 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                         <input type="text" value={editFormData.other_branch || ''} onChange={e => setEditFormData({...editFormData, other_branch: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" />
                       </div>
                     )}
+                    
+                    {/* 10th Details */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">10th CGPA</label>
-                      <input type="number" step="0.01" value={editFormData.tenth_cgpa || ''} onChange={e => setEditFormData({...editFormData, tenth_cgpa: parseFloat(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">10th Details</label>
+                      <div className="flex gap-2">
+                        <input type="number" step="0.01" placeholder="CGPA" value={editFormData.tenth_cgpa || ''} onChange={e => setEditFormData({...editFormData, tenth_cgpa: parseFloat(e.target.value)})} className="w-1/2 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" />
+                        <input type="text" placeholder="YOP" value={editFormData.tenth_yop || ''} onChange={e => setEditFormData({...editFormData, tenth_yop: e.target.value})} className="w-1/2 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" />
+                      </div>
                     </div>
                     
-                    <div className="flex gap-2">
-                      <div className="w-1/2">
+                    {/* Inter/Diploma Details */}
+                    <div className="flex gap-2 col-span-1 md:col-span-2 lg:col-span-1">
+                      <div className="w-1/3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Inter/Diploma</label>
                         <select value={editFormData.intermediate_or_diploma || ''} onChange={e => setEditFormData({...editFormData, intermediate_or_diploma: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500">
                           <option value="Intermediate">Intermediate</option>
                           <option value="Diploma">Diploma</option>
                         </select>
                       </div>
-                      <div className="w-1/2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{editFormData.intermediate_or_diploma === 'Diploma' ? 'Diploma CGPA' : 'Inter CGPA'}</label>
-                        <input type="number" step="0.01" value={editFormData.intermediate_or_diploma === 'Diploma' ? (editFormData.diploma_cgpa || '') : (editFormData.intermediate_cgpa || '')} 
+                      <div className="w-1/3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">CGPA</label>
+                        <input type="number" step="0.01" placeholder="CGPA" value={editFormData.intermediate_or_diploma === 'Diploma' ? (editFormData.diploma_cgpa || '') : (editFormData.intermediate_cgpa || '')} 
                           onChange={e => {
                             if (editFormData.intermediate_or_diploma === 'Diploma') {
                               setEditFormData({...editFormData, diploma_cgpa: parseFloat(e.target.value)});
@@ -870,6 +878,10 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                             }
                           }} 
                           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" />
+                      </div>
+                      <div className="w-1/3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">YOP</label>
+                        <input type="text" placeholder="YOP" value={editFormData.inter_yop || ''} onChange={e => setEditFormData({...editFormData, inter_yop: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500" />
                       </div>
                     </div>
 
