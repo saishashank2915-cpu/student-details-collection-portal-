@@ -38,6 +38,15 @@ const INITIAL_FORM_DATA: StudentFormData = {
   tenthCgpa: '',
   tenthPercentage: '',
   tenthYearOfPassing: '',
+  
+  // Professional & Coding Profiles
+  linkedinLink: '',
+  resumeLink: '',
+  githubLink: '',
+  hackerrankLink: '',
+  leetcodeLink: '',
+  codechefLink: '',
+  codeforcesLink: '',
 };
 
 export default function App() {
@@ -156,7 +165,6 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // Send split names to backend
           firstName: formData.firstName.trim().toUpperCase(),
           lastName: formData.lastName.trim().toUpperCase(),
           rollNumber: formData.rollNumber.trim().toUpperCase(),
@@ -185,6 +193,15 @@ export default function App() {
           tenthCgpa: parseFloat(formData.tenthCgpa),
           tenthPercentage: parseFloat(formData.tenthPercentage),
           tenthYearOfPassing: formData.tenthYearOfPassing || null,
+          
+          // Optional Profiles
+          linkedinLink: formData.linkedinLink ? formData.linkedinLink.trim() : null,
+          resumeLink: formData.resumeLink ? formData.resumeLink.trim() : null,
+          githubLink: formData.githubLink ? formData.githubLink.trim() : null,
+          hackerrankLink: formData.hackerrankLink ? formData.hackerrankLink.trim() : null,
+          leetcodeLink: formData.leetcodeLink ? formData.leetcodeLink.trim() : null,
+          codechefLink: formData.codechefLink ? formData.codechefLink.trim() : null,
+          codeforcesLink: formData.codeforcesLink ? formData.codeforcesLink.trim() : null,
         }),
       });
 
@@ -221,7 +238,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // If faculty portal view is active
   if (currentView === 'faculty') {
     return (
       <div className="min-h-screen bg-[#f0f4f8] py-6 sm:py-10 px-3 sm:px-4">
@@ -233,7 +249,6 @@ export default function App() {
     );
   }
 
-  // If already submitted successfully, render Google Forms-style Success Screen
   if (submittedStudent) {
     return (
       <div className="min-h-screen bg-[#f0f4f8] py-8 sm:py-12 px-3 sm:px-4">
@@ -248,16 +263,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#f0f4f8] py-6 sm:py-10 px-3 sm:px-4">
       <main className="max-w-[760px] mx-auto">
-        {/* College Branding Banner */}
         <CollegeBanner />
 
-        {/* Form Header */}
         <FormHeader
           systemStatus={systemStatus}
           onOpenFacultyPortal={() => setCurrentView('faculty')}
         />
 
-        {/* Global submission error alert */}
         {generalError && (
           <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2.5">
             <svg
@@ -266,12 +278,7 @@ export default function App() {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
               <p className="font-semibold">Unable to submit form</p>
@@ -281,7 +288,6 @@ export default function App() {
         )}
 
         <form onSubmit={handleSubmit} noValidate>
-          {/* Section 1: Personal Details */}
           <PersonalDetailsSection
             firstName={formData.firstName}
             lastName={formData.lastName}
@@ -295,7 +301,6 @@ export default function App() {
             errors={errors}
           />
 
-          {/* Section 2: Contact Verification */}
           <ContactVerificationSection
             email={formData.email}
             mobileNumber={formData.mobileNumber}
@@ -308,7 +313,6 @@ export default function App() {
             errors={errors}
           />
 
-          {/* Section 3: Academic & Education Details */}
           <AcademicDetailsSection
             college={formData.college}
             branch={formData.branch}
@@ -331,7 +335,47 @@ export default function App() {
             errors={errors}
           />
 
-          {/* Bottom Action Area */}
+          {/* Section 4: Professional & Coding Profiles */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-6">
+            <div className="h-1 w-full bg-blue-600"></div>
+            <div className="p-6 sm:p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-1">4. Professional Profiles</h2>
+              <p className="text-sm text-gray-500 mb-6">These fields are optional but recommended for placement drives.</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn Profile</label>
+                  <input type="url" value={formData.linkedinLink || ''} onChange={(e) => handleFieldChange('linkedinLink', e.target.value)} placeholder="https://linkedin.com/in/..." className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Resume Drive Link</label>
+                  <input type="url" value={formData.resumeLink || ''} onChange={(e) => handleFieldChange('resumeLink', e.target.value)} placeholder="Google Drive Shareable Link" className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600" />
+                  <p className="text-[11px] text-gray-400 mt-1">Make sure access is set to "Anyone with the link"</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">GitHub Profile</label>
+                  <input type="url" value={formData.githubLink || ''} onChange={(e) => handleFieldChange('githubLink', e.target.value)} placeholder="https://github.com/..." className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">HackerRank Profile</label>
+                  <input type="url" value={formData.hackerrankLink || ''} onChange={(e) => handleFieldChange('hackerrankLink', e.target.value)} placeholder="https://hackerrank.com/..." className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">LeetCode Profile</label>
+                  <input type="url" value={formData.leetcodeLink || ''} onChange={(e) => handleFieldChange('leetcodeLink', e.target.value)} placeholder="https://leetcode.com/u/..." className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CodeChef Profile</label>
+                  <input type="url" value={formData.codechefLink || ''} onChange={(e) => handleFieldChange('codechefLink', e.target.value)} placeholder="https://codechef.com/users/..." className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CodeForces Profile</label>
+                  <input type="url" value={formData.codeforcesLink || ''} onChange={(e) => handleFieldChange('codeforcesLink', e.target.value)} placeholder="https://codeforces.com/profile/..." className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 mb-8">
             <button
               type="submit"
@@ -376,7 +420,6 @@ export default function App() {
             </span>
           </div>
 
-          {/* Faculty Portal Link Footer */}
           <div className="pt-6 pb-12 border-t border-gray-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
             <span>&copy; {new Date().getFullYear()} AVN Institute of Engineering and Technology</span>
             <button
