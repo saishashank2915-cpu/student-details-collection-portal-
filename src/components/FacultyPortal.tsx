@@ -145,7 +145,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
 
       const data = await res.json();
       if (res.ok && data.success) {
-        // Update local state without refetching all records
         setStudents((prev) => prev.map((s) => (s.id === editingStudent.id ? { ...s, ...data.student } : s)));
         setEditingStudent(null);
         alert('Student details updated successfully!');
@@ -159,7 +158,7 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     }
   };
 
- const openEditModal = (student: StudentRecord) => {
+  const openEditModal = (student: StudentRecord) => {
     setEditingStudent(student);
     setEditFormData({
       first_name: student.first_name,
@@ -186,6 +185,7 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
       mobile_number: student.mobile_number,
     });
   };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
@@ -328,7 +328,6 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
-    // Added widths for Full Name, First Name, and Last Name
     worksheet['!cols'] = [
       { wch: 6 }, { wch: 18 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 18 },
       { wch: 35 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
@@ -782,7 +781,8 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
               </button>
             </div>
             
-         <form id="editStudentForm" onSubmit={handleUpdateStudent} className="space-y-6">
+            <div className="p-6 overflow-y-auto">
+              <form id="editStudentForm" onSubmit={handleUpdateStudent} className="space-y-6">
                 
                 {/* 1. Personal Details */}
                 <div>
@@ -916,3 +916,21 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
                 </div>
 
               </form>
+            </div>
+            
+            {/* Modal Footer Buttons */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <button type="button" onClick={() => setEditingStudent(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer">
+                Cancel
+              </button>
+              <button type="submit" form="editStudentForm" disabled={isUpdating} className={`px-4 py-2 text-sm font-medium text-white rounded-md cursor-pointer ${isUpdating ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {isUpdating ? 'Saving Changes...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
