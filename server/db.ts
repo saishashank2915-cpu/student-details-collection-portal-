@@ -32,6 +32,15 @@ export interface StudentInsertData {
   tenthPercentage?: number | null;
   tenthYearOfPassing?: string | null;
   crtRegistration?: string | null;
+  
+  // Professional Profiles
+  linkedinLink?: string | null;
+  resumeLink?: string | null;
+  githubLink?: string | null;
+  hackerrankLink?: string | null;
+  leetcodeLink?: string | null;
+  codechefLink?: string | null;
+  codeforcesLink?: string | null;
 }
 
 export interface StudentDbRow {
@@ -64,6 +73,16 @@ export interface StudentDbRow {
   tenth_percentage?: number | null;
   tenth_year_of_passing?: string | null;
   crt_registration?: string | null;
+  
+  // Professional Profiles
+  linkedin_link?: string | null;
+  resume_link?: string | null;
+  github_link?: string | null;
+  hackerrank_link?: string | null;
+  leetcode_link?: string | null;
+  codechef_link?: string | null;
+  codeforces_link?: string | null;
+
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +154,13 @@ class MemoryDatabase {
       tenth_percentage: data.tenthPercentage ?? null,
       tenth_year_of_passing: data.tenthYearOfPassing || null,
       crt_registration: data.crtRegistration,
+      linkedin_link: data.linkedinLink || null,
+      resume_link: data.resumeLink || null,
+      github_link: data.githubLink || null,
+      hackerrank_link: data.hackerrankLink || null,
+      leetcode_link: data.leetcodeLink || null,
+      codechef_link: data.codechefLink || null,
+      codeforces_link: data.codeforcesLink || null,
       created_at: now,
       updated_at: now,
     };
@@ -176,12 +202,16 @@ class MemoryDatabase {
     return false;
   }
 
-  async updateStudent(id: string, updates: Partial<StudentDbRow>): Promise<StudentDbRow | null> {
+  async updateStudent(id: string, updates: Record<string, any>): Promise<StudentDbRow | null> {
+    // Map frontend specific keys to DB keys
+    if (updates.tenth_yop) updates.tenth_year_of_passing = updates.tenth_yop;
+    if (updates.inter_yop) updates.intermediate_year_of_passing = updates.inter_yop;
+
     const student = this.students.get(id);
     if (student) {
       const updated = { ...student, ...updates, updated_at: new Date().toISOString() };
-      this.students.set(id, updated);
-      return updated;
+      this.students.set(id, updated as StudentDbRow);
+      return updated as StudentDbRow;
     }
     return null;
   }
@@ -277,6 +307,13 @@ class PostgresDatabase {
           tenth_percentage NUMERIC(5, 2),
           tenth_year_of_passing VARCHAR(10),
           crt_registration VARCHAR(20),
+          linkedin_link VARCHAR(255),
+          resume_link VARCHAR(255),
+          github_link VARCHAR(255),
+          hackerrank_link VARCHAR(255),
+          leetcode_link VARCHAR(255),
+          codechef_link VARCHAR(255),
+          codeforces_link VARCHAR(255),
           created_at TIMESTAMPTZ DEFAULT NOW(),
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );
@@ -294,6 +331,23 @@ class PostgresDatabase {
           created_at TIMESTAMPTZ DEFAULT NOW()
         );
       `);
+      
+      // Attempt to alter table if columns don't exist yet (for existing DBs)
+      try {
+        await client.query(`
+          ALTER TABLE students 
+          ADD COLUMN IF NOT EXISTS linkedin_link VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS resume_link VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS github_link VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS hackerrank_link VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS leetcode_link VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS codechef_link VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS codeforces_link VARCHAR(255);
+        `);
+      } catch (e) {
+        // Ignore column exists errors
+      }
+      
     } finally {
       client.release();
     }
@@ -312,12 +366,14 @@ class PostgresDatabase {
         first_name, last_name, roll_number, date_of_birth, gender, email, email_verified,
         mobile_number, aadhar_number, pan_number, passport_number, college, branch, other_branch,
         cgpa, percentage, active_backlogs,
-        intermediate_or_diploma, intermediate_cgpa, intermediate_percentage, diploma_cgpa, diploma_percentage, intermediate_year_of_passing, btech_year_of_passing, tenth_cgpa, tenth_percentage, tenth_year_of_passing, crt_registration
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28) RETURNING *`,
+        intermediate_or_diploma, intermediate_cgpa, intermediate_percentage, diploma_cgpa, diploma_percentage, intermediate_year_of_passing, btech_year_of_passing, tenth_cgpa, tenth_percentage, tenth_year_of_passing, crt_registration,
+        linkedin_link, resume_link, github_link, hackerrank_link, leetcode_link, codechef_link, codeforces_link
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35) RETURNING *`,
       [
         data.firstName.trim(), data.lastName.trim(), data.rollNumber.trim().toUpperCase(), data.dateOfBirth, data.gender, data.email.trim().toLowerCase(), data.emailVerified,
         data.mobileNumber.trim(), data.aadharNumber, data.panNumber || null, data.passportNumber || null, data.college.trim(), data.branch, data.otherBranch ? data.otherBranch.trim() : null,
         data.cgpa, data.percentage, data.activeBacklogs, data.intermediateOrDiploma || null, data.intermediateCgpa ?? null, data.intermediatePercentage ?? null, data.diplomaCgpa ?? null, data.diplomaPercentage ?? null, data.intermediateYearOfPassing || null, data.btechYearOfPassing || null, data.tenthCgpa ?? null, data.tenthPercentage ?? null, data.tenthYearOfPassing || null, data.crtRegistration || null,
+        data.linkedinLink || null, data.resumeLink || null, data.githubLink || null, data.hackerrankLink || null, data.leetcodeLink || null, data.codechefLink || null, data.codeforcesLink || null
       ]
     );
     return res.rows[0];
@@ -351,17 +407,32 @@ class PostgresDatabase {
     return (res.rowCount ?? 0) > 0;
   }
 
-  async updateStudent(id: string, updates: Partial<StudentDbRow>): Promise<StudentDbRow | null> {
+  async updateStudent(id: string, updates: Record<string, any>): Promise<StudentDbRow | null> {
     await this.ready;
-    const allowedKeys = ['first_name', 'last_name', 'roll_number', 'branch', 'cgpa', 'percentage', 'active_backlogs', 'email', 'mobile_number', 'btech_year_of_passing'];
+    
+    // Map frontend specific keys to DB keys
+    if (updates.tenth_yop) updates.tenth_year_of_passing = updates.tenth_yop;
+    if (updates.inter_yop) updates.intermediate_year_of_passing = updates.inter_yop;
+
+    const allowedKeys = [
+      'first_name', 'last_name', 'roll_number', 'date_of_birth', 'gender', 'email', 
+      'mobile_number', 'aadhar_number', 'pan_number', 'passport_number', 
+      'college', 'branch', 'other_branch', 'cgpa', 'percentage', 'active_backlogs', 
+      'intermediate_or_diploma', 'intermediate_cgpa', 'diploma_cgpa', 
+      'intermediate_year_of_passing', 'btech_year_of_passing', 
+      'tenth_cgpa', 'tenth_year_of_passing', 'crt_registration',
+      'linkedin_link', 'resume_link', 'github_link', 'hackerrank_link',
+      'leetcode_link', 'codechef_link', 'codeforces_link'
+    ];
+    
     const setClauses: string[] = [];
     const values: any[] = [];
     let i = 1;
 
     for (const key of allowedKeys) {
-      if (updates[key as keyof StudentDbRow] !== undefined) {
+      if (updates[key] !== undefined) {
         setClauses.push(`${key} = $${i}`);
-        values.push(updates[key as keyof StudentDbRow]);
+        values.push(updates[key]);
         i++;
       }
     }
