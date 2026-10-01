@@ -159,22 +159,33 @@ export const FacultyPortal: React.FC<FacultyPortalProps> = ({ onBackToStudentFor
     }
   };
 
-  const openEditModal = (student: StudentRecord) => {
+ const openEditModal = (student: StudentRecord) => {
     setEditingStudent(student);
     setEditFormData({
       first_name: student.first_name,
       last_name: student.last_name,
       roll_number: student.roll_number,
       branch: student.branch,
+      other_branch: student.other_branch,
+      college: student.college,
+      date_of_birth: student.date_of_birth,
+      gender: student.gender,
+      aadhar_number: student.aadhar_number,
+      pan_number: student.pan_number,
+      passport_number: student.passport_number,
+      tenth_cgpa: student.tenth_cgpa,
+      intermediate_or_diploma: student.intermediate_or_diploma,
+      intermediate_cgpa: student.intermediate_cgpa,
+      diploma_cgpa: student.diploma_cgpa,
       cgpa: student.cgpa,
       percentage: student.percentage,
       active_backlogs: student.active_backlogs,
+      btech_year_of_passing: student.btech_year_of_passing,
+      crt_registration: student.crt_registration,
       email: student.email,
       mobile_number: student.mobile_number,
-      btech_year_of_passing: student.btech_year_of_passing,
     });
   };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
