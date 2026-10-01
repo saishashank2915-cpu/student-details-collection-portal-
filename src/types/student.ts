@@ -54,6 +54,15 @@ export interface StudentFormData {
   tenthCgpa: string;
   tenthPercentage: string;
   tenthYearOfPassing: string;
+
+  // Professional & Coding Profiles (Optional)
+  linkedinLink?: string;
+  resumeLink?: string;
+  githubLink?: string;
+  hackerrankLink?: string;
+  leetcodeLink?: string;
+  codechefLink?: string;
+  codeforcesLink?: string;
 }
 
 export interface StudentRecord {
@@ -86,6 +95,16 @@ export interface StudentRecord {
   tenth_cgpa?: number | null;
   tenth_percentage?: number | null;
   tenth_year_of_passing?: string | null;
+  
+  // Professional & Coding Profiles (Optional)
+  linkedin_link?: string | null;
+  resume_link?: string | null;
+  github_link?: string | null;
+  hackerrank_link?: string | null;
+  leetcode_link?: string | null;
+  codechef_link?: string | null;
+  codeforces_link?: string | null;
+
   created_at?: string;
   updated_at?: string;
 }
