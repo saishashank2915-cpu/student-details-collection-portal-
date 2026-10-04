@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS students (
   pan_number VARCHAR(10),
   passport_number VARCHAR(9),
   college VARCHAR(255) NOT NULL,
-  branch VARCHAR(50) NOT NULL,
+  branch TEXT NOT NULL,
   other_branch VARCHAR(100),
   cgpa NUMERIC(4, 2) NOT NULL,
   percentage NUMERIC(5, 2) NOT NULL,
