@@ -2,13 +2,11 @@ import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import { db, type StudentDbRow } from './db.js';
 
-const FACULTY_SECRET = process.env.FACULTY_JWT_SECRET || 'avn_faculty_dept_secret_key_2026';
-const GLOBAL_FACULTY_PASS = process.env.FACULTY_PASSWORD || 'faculty@avn2026';
+const FACULTY_SECRET = process.env.FACULTY_JWT_SECRET || '';
 
 export interface DepartmentInfo {
   code: string;
   name: string;
-  defaultPass: string;
   aliases: string[];
 }
 
@@ -16,21 +14,20 @@ export const DEPARTMENTS: Record<string, DepartmentInfo> = {
   ALL: {
     code: 'ALL',
     name: 'All Departments (Dean / Admin)',
-    defaultPass: 'admin@avn2026',
     aliases: [],
   },
   CSE: {
     code: 'CSE',
     name: 'Computer Science & Engineering (CSE)',
-    defaultPass: 'cse@avn2026',
     aliases: ['Computer Science & Engineering (CSE)', 'CSE'],
   },
   'CSE-AIML': {
     code: 'CSE-AIML',
     name: 'CSE – Artificial Intelligence & Machine Learning (AI & ML)',
-    defaultPass: 'aiml@avn2026',
     aliases: [
       'CSE – Artificial Intelligence & Machine Learning (AI & ML)',
+      'CSE – Artificial Intelligence & Machine Learning',
+      'CSE – Artificial Intelligence & Machine Learning (AI & ML)'.substring(0, 48),
       'AI & ML',
       'CSE-AIML',
     ],
@@ -38,19 +35,16 @@ export const DEPARTMENTS: Record<string, DepartmentInfo> = {
   'CSE-DS': {
     code: 'CSE-DS',
     name: 'CSE – Data Science (DS)',
-    defaultPass: 'ds@avn2026',
     aliases: ['CSE – Data Science (DS)', 'CSE-DS', 'DS'],
   },
   'CSE-CS': {
     code: 'CSE-CS',
     name: 'CSE – Cyber Security (CS)',
-    defaultPass: 'cs@avn2026',
     aliases: ['CSE – Cyber Security (CS)', 'CSE-CS', 'CS'],
   },
   'AI-DS': {
     code: 'AI-DS',
     name: 'Artificial Intelligence & Data Science (AI & DS)',
-    defaultPass: 'aids@avn2026',
     aliases: [
       'Artificial Intelligence & Data Science (AI & DS)',
       'AI & DS',
@@ -60,25 +54,21 @@ export const DEPARTMENTS: Record<string, DepartmentInfo> = {
   ECE: {
     code: 'ECE',
     name: 'Electronics & Communication Engineering (ECE)',
-    defaultPass: 'ece@avn2026',
     aliases: ['Electronics & Communication Engineering (ECE)', 'ECE'],
   },
   CE: {
     code: 'CE',
     name: 'Civil Engineering (CE)',
-    defaultPass: 'civil@avn2026',
     aliases: ['Civil Engineering (CE)', 'CIVIL', 'CE'],
   },
   ME: {
     code: 'ME',
     name: 'Mechanical Engineering (ME)',
-    defaultPass: 'mech@avn2026',
     aliases: ['Mechanical Engineering (ME)', 'MECH', 'ME'],
   },
   Other: {
     code: 'Other',
     name: 'Other Departments',
-    defaultPass: 'other@avn2026',
     aliases: ['Other'],
   },
 };
@@ -97,17 +87,20 @@ export function getDepartmentAliases(departmentCode: string): string[] {
  */
 export function verifyFacultyCredentials(department: string, pass: string): boolean {
   const dept = DEPARTMENTS[department];
-  if (!dept) return false;
+  if (!Object.hasOwn(DEPARTMENTS, department)) return false;
 
-  const trimmedPass = (pass || '').trim();
-  // Accepts department-specific password or global faculty passkey
-  return trimmedPass === dept.defaultPass || trimmedPass === GLOBAL_FACULTY_PASS;
+  const expected = process.env[`FACULTY_PASSWORD_${department.replace(/-/g, '_').toUpperCase()}`];
+  if (!FACULTY_SECRET || !expected || typeof pass !== 'string') return false;
+  const actualHash = crypto.createHash('sha256').update(pass).digest();
+  const expectedHash = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(actualHash, expectedHash);
 }
 
 /**
  * Create signed faculty session token
  */
 export function createFacultyToken(department: string): string {
+  if (!FACULTY_SECRET || !Object.hasOwn(DEPARTMENTS, department)) throw new Error('Faculty authentication is not configured.');
   const payload = {
     dept: department,
     exp: Date.now() + 12 * 60 * 60 * 1000, // 12 hours
@@ -122,15 +115,15 @@ export function createFacultyToken(department: string): string {
  * Verify faculty session token
  */
 export function verifyFacultyToken(token: string): { dept: string } | null {
-  if (!token || !token.includes('.')) return null;
+  if (!FACULTY_SECRET || typeof token !== 'string' || token.split('.').length !== 2) return null;
   const [str, sig] = token.split('.');
   const expectedSig = crypto.createHmac('sha256', FACULTY_SECRET).update(str).digest('base64url');
 
-  if (sig !== expectedSig) return null;
+  if (!/^[A-Za-z0-9_-]{43}$/.test(sig) || sig.length !== expectedSig.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) return null;
 
   try {
     const payload = JSON.parse(Buffer.from(str, 'base64url').toString('utf8'));
-    if (!payload.exp || payload.exp < Date.now()) return null;
+    if (!Number.isFinite(payload.exp) || payload.exp <= Date.now() || typeof payload.dept !== 'string' || !Object.hasOwn(DEPARTMENTS, payload.dept)) return null;
     return { dept: payload.dept };
   } catch {
     return null;
@@ -144,7 +137,9 @@ export function generateStudentsExcelBuffer(students: StudentDbRow[], department
   const data = students.map((s, idx) => ({
     'S.No': idx + 1,
     'Roll Number / Hall Ticket': s.roll_number,
-    'Full Name': s.full_name,
+    'Full Name': `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+    'First Name': s.first_name,
+    'Last Name': s.last_name,
     'Department / Branch': s.branch === 'Other' && s.other_branch ? `${s.branch} (${s.other_branch})` : s.branch,
     'Academic Session': '2026–2027',
     'College / Institution': s.college,
@@ -177,6 +172,13 @@ export function generateStudentsExcelBuffer(students: StudentDbRow[], department
     'CRT Registration': s.crt_registration || '-',
     'Submission Date': s.created_at ? new Date(s.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
     'Submission ID': s.id,
+    'LinkedIn': s.linkedin_link || '',
+    'Resume': s.resume_link || '',
+    'GitHub': s.github_link || '',
+    'HackerRank': s.hackerrank_link || '',
+    'LeetCode': s.leetcode_link || '',
+    'CodeChef': s.codechef_link || '',
+    'Codeforces': s.codeforces_link || '',
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(data);
@@ -205,4 +207,23 @@ export function generateStudentsExcelBuffer(students: StudentDbRow[], department
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31));
 
   return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+}
+
+export function extractFacultySession(req: any): { dept: string } | null {
+  const header = req.headers?.authorization;
+  return typeof header === 'string' && header.startsWith('Bearer ')
+    ? verifyFacultyToken(header.slice(7)) : null;
+}
+
+export function facultyFilter(dept: string, query: Record<string, unknown> = {}) {
+  const target = dept === 'ALL' && typeof query.branch === 'string' ? query.branch : dept;
+  return {
+    branch: target === 'ALL' ? undefined : getDepartmentAliases(target),
+    yop: typeof query.yop === 'string' && query.yop !== 'ALL' ? query.yop : undefined,
+    search: typeof query.search === 'string' ? query.search.trim() : undefined,
+  };
+}
+
+export function canAccessStudent(dept: string, branch: string): boolean {
+  return dept === 'ALL' || getDepartmentAliases(dept).includes(branch);
 }

@@ -104,6 +104,10 @@ class MemoryDatabase {
   private students = new Map<string, StudentDbRow>();
   private otpRecords: OtpRecord[] = [];
 
+  async findStudentById(id: string): Promise<StudentDbRow | null> {
+    return this.students.get(id) || null;
+  }
+
   async findStudentByRollNumber(rollNumber: string): Promise<StudentDbRow | null> {
     const normalized = rollNumber.trim().toUpperCase();
     for (const student of this.students.values()) {
@@ -184,7 +188,7 @@ class MemoryDatabase {
     if (filter?.search) {
       const q = filter.search.trim().toLowerCase();
       list = list.filter(s =>
-        s.first_name.toLowerCase().includes(q) ||
+        `${s.first_name || ''} ${s.last_name || ''}`.trim().toLowerCase().includes(q) ||
         s.last_name.toLowerCase().includes(q) ||
         s.roll_number.toLowerCase().includes(q) ||
         s.email.toLowerCase().includes(q) ||
@@ -260,6 +264,12 @@ class MemoryDatabase {
 
 // PostgreSQL Implementation
 class PostgresDatabase {
+  async findStudentById(id: string): Promise<StudentDbRow | null> {
+    await this.ready;
+    const result = await this.pool.query('SELECT * FROM students WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  }
+
   private pool: pg.Pool;
   ready: Promise<void> = Promise.resolve();
 
@@ -290,7 +300,7 @@ class PostgresDatabase {
           pan_number VARCHAR(10),
           passport_number VARCHAR(9),
           college VARCHAR(255) NOT NULL,
-          branch VARCHAR(50) NOT NULL,
+          branch TEXT NOT NULL,
           other_branch VARCHAR(100),
           year_of_study VARCHAR(30),
           cgpa NUMERIC(4, 2) NOT NULL,
@@ -332,6 +342,8 @@ class PostgresDatabase {
         );
       `);
       
+      await client.query('ALTER TABLE students ALTER COLUMN branch TYPE TEXT');
+
       // Attempt to alter table if columns don't exist yet (for existing DBs)
       try {
         await client.query(`
@@ -392,7 +404,7 @@ class PostgresDatabase {
     }
     if (filter?.search) {
       params.push(`%${filter.search.trim()}%`);
-      conditions.push(`(first_name ILIKE $${params.length} OR last_name ILIKE $${params.length} OR roll_number ILIKE $${params.length} OR email ILIKE $${params.length} OR mobile_number ILIKE $${params.length})`);
+      conditions.push(`(concat_ws(' ', first_name, last_name) ILIKE $${params.length} OR first_name ILIKE $${params.length} OR last_name ILIKE $${params.length} OR roll_number ILIKE $${params.length} OR email ILIKE $${params.length} OR mobile_number ILIKE $${params.length})`);
     }
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const query = `SELECT * FROM students ${whereClause} ORDER BY roll_number ASC, created_at DESC`;
@@ -418,7 +430,8 @@ class PostgresDatabase {
       'first_name', 'last_name', 'roll_number', 'date_of_birth', 'gender', 'email', 
       'mobile_number', 'aadhar_number', 'pan_number', 'passport_number', 
       'college', 'branch', 'other_branch', 'cgpa', 'percentage', 'active_backlogs', 
-      'intermediate_or_diploma', 'intermediate_cgpa', 'diploma_cgpa', 
+      'intermediate_or_diploma', 'intermediate_cgpa', 'diploma_cgpa',
+      'intermediate_percentage', 'diploma_percentage', 'tenth_percentage', 'email_verified',
       'intermediate_year_of_passing', 'btech_year_of_passing', 
       'tenth_cgpa', 'tenth_year_of_passing', 'crt_registration',
       'linkedin_link', 'resume_link', 'github_link', 'hackerrank_link',
