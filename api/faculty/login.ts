@@ -6,9 +6,11 @@ export default function handler(req: any, res: any) {
   }
 
   const { department, password } = req.body || {};
-  if (!department || !password) {
+  if (typeof department !== 'string' || typeof password !== 'string' || !department || !password) {
     return res.status(400).json({ success: false, message: 'Department and password are required.' });
   }
+
+  if (!process.env.FACULTY_JWT_SECRET) return res.status(503).json({success: false, message: 'Faculty login is not configured. Contact the administrator.'});
 
   const isValid = verifyFacultyCredentials(department, password);
   if (!isValid) {

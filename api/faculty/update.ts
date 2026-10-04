@@ -1,5 +1,7 @@
 import { db } from '../../server/db.js';
-import { verifyFacultyToken } from '../../server/faculty.js';
+import { verifyFacultyToken, canAccessStudent, DEPARTMENTS } from '../../server/faculty.js';
+
+import { validateStudentUpdates } from '../../src/lib/student-updates.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'PUT' && req.method !== 'PATCH') {
@@ -22,18 +24,20 @@ export default async function handler(req: any, res: any) {
   try {
     // 2. Safely parse the body
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { id, updates } = body;
+    const { id, updates: input } = body || {};
 
-    if (!id || !updates) {
+    if (typeof id !== 'string' || !input) {
       return res.status(400).json({ success: false, message: 'Student ID and updates are required.' });
     }
 
-    // 3. SAFETY STRIP: If this is a soft delete or purely a status change, 
-    // remove unique identifiers from the update payload to prevent 23505 constraint errors.
-    if (updates.is_deleted === true || updates.status === 'deleted') {
-      delete updates.roll_number;
-      delete updates.email;
-    }
+    const existing = await db.findStudentById(id);
+    if (!existing) return res.status(404).json({success:false, message:'Student not found.'});
+    if (!canAccessStudent(decoded.dept, existing.branch)) return res.status(403).json({success:false, message:'Access denied.'});
+    const {updates, errors} = validateStudentUpdates(existing, input);
+    if ('branch' in updates && !Object.values(DEPARTMENTS).some(d => d.code !== 'ALL' && d.aliases.includes(updates.branch))) errors.branch = 'Please select a valid department.';
+    if ('branch' in updates && !canAccessStudent(decoded.dept, updates.branch)) return res.status(403).json({success:false, message:'Access denied.'});
+    if (Object.keys(errors).length) return res.status(400).json({success:false, message:Object.values(errors).join(' '), errors});
+    if (!Object.keys(updates).length) return res.json({success:true, student:existing});
 
     // 4. Update Database
     const updatedStudent = await db.updateStudent(id, updates);
@@ -43,7 +47,7 @@ export default async function handler(req: any, res: any) {
       return res.status(404).json({ success: false, message: 'Student not found.' });
     }
   } catch (error: any) {
-    console.error('Update Error:', error);
+    if (error instanceof SyntaxError) return res.status(400).json({success:false, message:'Invalid request body.'});
     
     // 5. Handle Unique Constraint Violations
     if (error.code === '23505') {

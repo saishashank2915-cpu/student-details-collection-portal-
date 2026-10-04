@@ -1,5 +1,5 @@
 import { db } from '../../server/db.js';
-import { verifyFacultyToken } from '../../server/faculty.js';
+import { verifyFacultyToken, canAccessStudent } from '../../server/faculty.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'DELETE') {
@@ -21,11 +21,13 @@ export default async function handler(req: any, res: any) {
   try {
     const { id } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-    if (!id) {
+    if (typeof id !== 'string' || !id) {
       return res.status(400).json({ success: false, message: 'Student ID is required.' });
     }
 
-    // Call the delete method from your db class
+    const existing = await db.findStudentById(id);
+    if (!existing) return res.status(404).json({success:false, message:'Student not found.'});
+    if (!canAccessStudent(decoded.dept, existing.branch)) return res.status(403).json({success:false, message:'Access denied.'});
     const deleted = await db.deleteStudent(id); 
     
     if (deleted) {
