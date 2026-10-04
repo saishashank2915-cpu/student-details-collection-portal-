@@ -89,3 +89,59 @@ test('rendered year choices allow expected B.Tech graduation but no future compl
   assert.ok(!options('tenthYearOfPassing').includes(`value="${nextYear}"`));
   assert.ok(!options('intermediateYearOfPassing').includes(`value="${nextYear}"`));
 });
+
+test('registration saves full departments/profiles, uppercases names and consumes verification', async () => {
+  const {createHash} = await import('node:crypto');
+  const {default: submit} = await import('../api/students/submit.js');
+  const email='registration@example.com';
+  const token='a'.repeat(64);
+  const otp=await db.saveOtp(email,'synthetic-test-hash',new Date());
+  await db.markOtpVerified(otp.id,createHash('sha256').update(token).digest('hex'),new Date(Date.now()+60000));
+  const body={...fixture,email,rollNumber:'NEW001',firstName:'new student',lastName:'',branch:faculty.DEPARTMENTS['CSE-AIML'].name,verificationToken:token};
+  const out=response();await submit({method:'POST',body},out);
+  assert.equal(out.code,201,JSON.stringify(out.body));
+  const saved=await db.findStudentById(out.body.submissionId);assert.ok(saved);
+  assert.equal(saved.first_name,'NEW STUDENT');assert.equal(saved.last_name,'');
+  assert.equal(saved.branch,body.branch);assert.equal(saved.github_link,body.githubLink);
+  assert.equal(saved.aadhar_number,body.aadharNumber);assert.equal(saved.percentage,body.percentage);
+  const replay=response();await submit({method:'POST',body:{...body,rollNumber:'NEW002'}},replay);
+  assert.equal(replay.code,400);assert.ok(replay.body.errors.email);
+  assert.equal(await db.findStudentByRollNumber('NEW002'),null);
+});
+test('registration rejects duplicate roll before writing another record', async () => {
+  const {createHash} = await import('node:crypto');
+  const {default: submit} = await import('../api/students/submit.js');
+  const email='duplicate@example.com';const token='b'.repeat(64);
+  const otp=await db.saveOtp(email,'synthetic-test-hash',new Date());
+  await db.markOtpVerified(otp.id,createHash('sha256').update(token).digest('hex'),new Date(Date.now()+60000));
+  const out=response();await submit({method:'POST',body:{...fixture,email,rollNumber:'TEST001',verificationToken:token}},out);
+  assert.equal(out.code,400);assert.ok(out.body.errors.rollNumber);
+});
+test('registration rejects malformed input and never leaks database details', async () => {
+  const {default: submit} = await import('../api/students/submit.js');
+  for(const body of [null, [], '{', {...fixture,firstName:{bad:true}}, {...fixture,aadharNumber:'123'}, {...fixture,cgpa:'8junk'}]) {
+    const out=response();await submit({method:'POST',body},out);assert.equal(out.code,400);assert.equal(out.body.errorDetails,undefined);
+  }
+});
+test('faculty APIs require authentication and enforce methods', async () => {
+  for(const [handler,method] of [[update,'PUT'],[remove,'DELETE'],[list,'GET'],[exportStudents,'GET']] as const) {
+    const out=response();await handler({method,headers:{},query:{},body:{}},out);assert.equal(out.code,401);
+    const wrongMethod=response();await handler(request('POST','ALL',{}),wrongMethod);assert.equal(wrongMethod.code,405);
+  }
+});
+test('department transfers are denied and malformed updates preserve existing data', async () => {
+  const original=await db.findStudentByRollNumber('TEST003');assert.ok(original);
+  const denied=response();await update(request('PUT','CSE',{id:original.id,updates:{branch:'ECE'}}),denied);assert.equal(denied.code,403);
+  for(const patch of [{aadhar_number:'123'},{mobile_number:'123'},{active_backlogs:-1},{active_backlogs:1.5},{email:'not-email'},{first_name:''},{branch:'nonsense'}]) {
+    const out=response();await update(request('PUT','ALL',{id:original.id,updates:patch}),out);assert.equal(out.code,400,JSON.stringify(patch));
+  }
+  assert.deepEqual(await db.findStudentById(original.id),original);
+});
+test('expired verification tokens fail without sending any email', async () => {
+  const {createHash} = await import('node:crypto');
+  const {validateVerificationToken} = await import('../server/otp.js');
+  const token='c'.repeat(64);const email='expired@example.com';
+  const otp=await db.saveOtp(email,'synthetic-test-hash',new Date());
+  await db.markOtpVerified(otp.id,createHash('sha256').update(token).digest('hex'),new Date(Date.now()-1000));
+  assert.equal(await validateVerificationToken(email,token),false);
+});
