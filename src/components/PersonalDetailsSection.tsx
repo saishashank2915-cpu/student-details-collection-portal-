@@ -72,7 +72,7 @@ export const PersonalDetailsSection: React.FC<PersonalDetailsProps> = ({
           
           <div>
             <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Last Name / Surname <span className="text-red-500">*</span>
+              Last Name / Surname (optional)
             </label>
             <input
               id="lastName"
