@@ -280,7 +280,7 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
         <div className="pt-2 border-t border-gray-100">
           <label htmlFor="btechYearOfPassing" className="block text-sm font-medium text-gray-700 mb-1.5">B.Tech Year of Passing (YOP) <span className="text-red-500">*</span></label>
           <select id="btechYearOfPassing" value={btechYearOfPassing} onChange={(e) => onChange('btechYearOfPassing', e.target.value)} className={`w-full sm:w-80 px-3.5 py-2.5 rounded-md border text-sm text-gray-900 bg-white focus:outline-none ${errors.btechYearOfPassing ? 'border-red-400' : 'border-gray-300 focus:border-blue-600'}`}>
-            <option value="">Select Year of Passing</option>{completedYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
+            <option value="">Select Year of Passing</option>{passingYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
           </select>
           {errors.btechYearOfPassing && <p className="mt-1 text-xs text-red-600">{errors.btechYearOfPassing}</p>}
         </div>
@@ -379,7 +379,7 @@ export const AcademicDetailsSection: React.FC<AcademicDetailsProps> = ({
             <div>
               <label htmlFor="tenthYearOfPassing" className="block text-sm font-medium text-gray-700 mb-1.5">10th Year of Passing</label>
               <select id="tenthYearOfPassing" value={tenthYearOfPassing} onChange={(e) => onChange('tenthYearOfPassing', e.target.value)} className="w-full px-3.5 py-2.5 rounded-md border border-gray-300 text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-600">
-                <option value="">Select Year of Passing</option>{passingYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
+                <option value="">Select Year of Passing</option>{completedYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
               </select>
               {errors.tenthYearOfPassing && <p className="mt-1 text-xs text-red-600">{errors.tenthYearOfPassing}</p>}
             </div>
