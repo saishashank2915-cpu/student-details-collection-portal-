@@ -6,7 +6,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. Students Table
 CREATE TABLE IF NOT EXISTS students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  full_name VARCHAR(100) NOT NULL,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
   roll_number VARCHAR(30) UNIQUE NOT NULL,
   date_of_birth DATE NOT NULL,
   gender VARCHAR(20) NOT NULL,
@@ -33,6 +34,13 @@ CREATE TABLE IF NOT EXISTS students (
   tenth_percentage NUMERIC(5, 2),
   tenth_year_of_passing VARCHAR(10),
   crt_registration VARCHAR(20),
+  linkedin_link VARCHAR(255),
+  resume_link VARCHAR(255),
+  github_link VARCHAR(255),
+  hackerrank_link VARCHAR(255),
+  leetcode_link VARCHAR(255),
+  codechef_link VARCHAR(255),
+  codeforces_link VARCHAR(255),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
