@@ -22,5 +22,12 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "src/main.tsx",
+    "server.ts",
+    "api/**/*.ts",
+    "vite.config.ts",
+    "tests/**/*.ts"
+  ]
 }
