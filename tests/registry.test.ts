@@ -77,3 +77,15 @@ test('updates/deletes deny other departments and name-only update preserves iden
 test('export refuses old query-string authentication', async () => {
   const out=response();await exportStudents({method:'GET',headers:{},query:{token:faculty.createFacultyToken('ALL')}},out);assert.equal(out.code,401);
 });
+
+test('rendered year choices allow expected B.Tech graduation but no future completed education', async () => {
+  const {createElement} = await import('react');
+  const {renderToStaticMarkup} = await import('react-dom/server');
+  const {AcademicDetailsSection} = await import('../src/components/AcademicDetailsSection.js');
+  const html = renderToStaticMarkup(createElement(AcademicDetailsSection, {...fixture, onChange: () => {}, errors: {}}));
+  const options = (id: string) => html.match(new RegExp(`<select id="${id}"[^>]*>([\\s\\S]*?)</select>`))?.[1] || '';
+  const nextYear = String(new Date().getFullYear() + 1);
+  assert.ok(options('btechYearOfPassing').includes(`value="${nextYear}"`));
+  assert.ok(!options('tenthYearOfPassing').includes(`value="${nextYear}"`));
+  assert.ok(!options('intermediateYearOfPassing').includes(`value="${nextYear}"`));
+});
