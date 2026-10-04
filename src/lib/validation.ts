@@ -112,17 +112,13 @@ export function validateStudentForm(
   const trimmedFirstName = (data.firstName || '').trim();
   if (!trimmedFirstName) {
     errors.firstName = 'First name is required.';
-  } else if (trimmedFirstName.length < 2) {
-    errors.firstName = 'First name must be at least 2 characters.';
   } else if (trimmedFirstName.length > 50) {
     errors.firstName = 'First name cannot exceed 50 characters.';
   }
 
   // 2. Last Name
   const trimmedLastName = (data.lastName || '').trim();
-  if (!trimmedLastName) {
-    errors.lastName = 'Last name is required.';
-  } else if (trimmedLastName.length > 50) {
+  if (trimmedLastName.length > 50) {
     errors.lastName = 'Last name cannot exceed 50 characters.';
   }
 
@@ -195,8 +191,8 @@ export function validateStudentForm(
   }
 
   // 11. CGPA & Percentage
-  const cgpaNum = parseFloat(data.cgpa);
-  const pctNum = parseFloat(data.percentage);
+  const cgpaNum = Number(data.cgpa);
+  const pctNum = Number(data.percentage);
 
   if (!data.cgpa || isNaN(cgpaNum)) {
     errors.cgpa = 'CGPA is required.';
@@ -234,22 +230,22 @@ export function validateStudentForm(
 
   // 14. Intermediate / Diploma CGPA, calculated percentage and year of passing
   if (data.intermediateOrDiploma === 'Intermediate') {
-    const intCgpaNum = parseFloat(data.intermediateCgpa);
-    const intPctNum = parseFloat(data.intermediatePercentage);
+    const intCgpaNum = Number(data.intermediateCgpa);
+    const intPctNum = Number(data.intermediatePercentage);
     if (!data.intermediateCgpa || isNaN(intCgpaNum) || intCgpaNum < 0 || intCgpaNum > 10) errors.intermediateCgpa = 'Intermediate CGPA must be between 0 and 10.';
     if (!data.intermediatePercentage || isNaN(intPctNum) || intPctNum < 0 || intPctNum > 100) errors.intermediatePercentage = 'Intermediate percentage must be between 0 and 100.';
     if (!data.intermediateYearOfPassing) errors.intermediateYearOfPassing = 'Intermediate Year of Passing is required.';
   } else if (data.intermediateOrDiploma === 'Diploma') {
-    const dipCgpaNum = parseFloat(data.diplomaCgpa);
-    const dipPctNum = parseFloat(data.diplomaPercentage);
+    const dipCgpaNum = Number(data.diplomaCgpa);
+    const dipPctNum = Number(data.diplomaPercentage);
     if (!data.diplomaCgpa || isNaN(dipCgpaNum) || dipCgpaNum < 0 || dipCgpaNum > 10) errors.diplomaCgpa = 'Diploma CGPA must be between 0 and 10.';
     if (!data.diplomaPercentage || isNaN(dipPctNum) || dipPctNum < 0 || dipPctNum > 100) errors.diplomaPercentage = 'Diploma percentage must be between 0 and 100.';
     if (!data.intermediateYearOfPassing) errors.intermediateYearOfPassing = 'Diploma Year of Passing is required.';
   }
 
   // 15. 10th CGPA, calculated percentage and year of passing
-  const tenthCgpaNum = parseFloat(data.tenthCgpa);
-  const tenthPctNum = parseFloat(data.tenthPercentage);
+  const tenthCgpaNum = Number(data.tenthCgpa);
+  const tenthPctNum = Number(data.tenthPercentage);
   if (!data.tenthCgpa || isNaN(tenthCgpaNum) || tenthCgpaNum < 0 || tenthCgpaNum > 10) errors.tenthCgpa = '10th CGPA must be between 0 and 10.';
   if (!data.tenthPercentage || isNaN(tenthPctNum) || tenthPctNum < 0 || tenthPctNum > 100) errors.tenthPercentage = '10th percentage must be between 0 and 100.';
   if (!data.tenthYearOfPassing) errors.tenthYearOfPassing = '10th Year of Passing is required.';
@@ -261,6 +257,29 @@ export function validateStudentForm(
 
   // 17. B.Tech Year of Passing (YOP)
   if (!data.btechYearOfPassing) errors.btechYearOfPassing = 'Please select your B.Tech Year of Passing.';
+
+  const currentYear = new Date().getFullYear();
+  const years = ['tenthYearOfPassing', 'intermediateYearOfPassing', 'btechYearOfPassing'] as const;
+  for (const key of years) {
+    const value = data[key];
+    const max = key === 'btechYearOfPassing' ? currentYear + 4 : currentYear;
+    if (!/^\d{4}$/.test(value) || Number(value) < 1950 || Number(value) > max) errors[key] = `Year must be between 1950 and ${max}.`;
+    if (value && data.dateOfBirth && Number(value) <= Number(data.dateOfBirth.slice(0, 4))) errors[key] = 'Passing year must be after the year of birth.';
+  }
+  if (data.tenthYearOfPassing && data.intermediateYearOfPassing && Number(data.intermediateYearOfPassing) <= Number(data.tenthYearOfPassing)) errors.intermediateYearOfPassing = 'Intermediate / Diploma must be after 10th.';
+  if (data.intermediateYearOfPassing && data.btechYearOfPassing && Number(data.btechYearOfPassing) <= Number(data.intermediateYearOfPassing)) errors.btechYearOfPassing = 'B.Tech must be after Intermediate / Diploma.';
+  for (const key of ['linkedinLink','resumeLink','githubLink','hackerrankLink','leetcodeLink','codechefLink','codeforcesLink'] as const) {
+    const value = data[key];
+    if (!value) continue;
+    try {
+      const url = new URL(value);
+      if (!['https:', 'http:'].includes(url.protocol) || value.length > 255) throw new Error();
+    } catch { errors[key] = 'Enter a valid HTTP or HTTPS URL (up to 255 characters).'; }
+  }
+  if (data.otherBranch.length > 100) errors.otherBranch = 'Branch name cannot exceed 100 characters.';
+  for (const [cgpaKey, pctKey] of [['tenthCgpa','tenthPercentage'], ...(data.intermediateOrDiploma === 'Diploma' ? [['diplomaCgpa','diplomaPercentage']] : [['intermediateCgpa','intermediatePercentage']])]) {
+    if (!verifyCgpaPercentageMatch(Number(data[cgpaKey as keyof StudentFormData]), Number(data[pctKey as keyof StudentFormData]))) errors[pctKey] = 'Percentage does not match CGPA.';
+  }
 
   return {
     isValid: Object.keys(errors).length === 0,
