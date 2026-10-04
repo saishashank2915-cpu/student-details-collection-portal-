@@ -242,7 +242,6 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#f0f4f8] py-6 sm:py-10 px-3 sm:px-4">
         <main className="max-w-6xl mx-auto">
-          <CollegeBanner />
           <FacultyPortal onBackToStudentForm={() => setCurrentView('student')} />
         </main>
       </div>
